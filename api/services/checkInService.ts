@@ -75,8 +75,15 @@ export const checkInService = {
     return checkInRepository.getFeed(userId, cursor, limit);
   },
 
-  async getExploreFeed(userId: number | null) {
-    const feed = await checkInRepository.getExploreFeed(userId);
+  async getExploreFeed(
+    userId: number | null,
+    options: {
+      habitId?: number;
+      keyword?: string;
+      sortBy: 'latest' | 'popular';
+    }
+  ) {
+    const feed = await checkInRepository.getExploreFeed(userId, options);
     return feed;
   },
 

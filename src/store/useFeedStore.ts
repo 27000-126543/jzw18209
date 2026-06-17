@@ -9,7 +9,7 @@ interface FeedState {
   userCheckIns: CheckInFeed[];
   loading: boolean;
   fetchFeed: () => Promise<void>;
-  fetchPublicFeed: (hot?: boolean) => Promise<void>;
+  fetchPublicFeed: (hot?: boolean, habitId?: number, keyword?: string) => Promise<void>;
   fetchExploreUsers: () => Promise<void>;
   fetchUserCheckIns: (userId: number) => Promise<void>;
   toggleLike: (id: number) => Promise<void>;
@@ -64,10 +64,10 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     }
   },
 
-  fetchPublicFeed: async (hot?: boolean) => {
+  fetchPublicFeed: async (hot?: boolean, habitId?: number, keyword?: string) => {
     set({ loading: true });
     try {
-      const data = await checkInsApi.publicFeed(hot);
+      const data = await checkInsApi.publicFeed(hot, habitId, keyword);
       set({ publicFeed: data, loading: false });
     } catch (error) {
       set({ loading: false });

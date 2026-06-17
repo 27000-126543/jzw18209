@@ -1,23 +1,25 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Edit, Trash2, Plus, Flame, Calendar, Award, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Plus, Flame, Calendar, Award, BarChart3, Target, XCircle, Activity } from 'lucide-react';
 import { useHabitStore } from '../store/useHabitStore';
 import HeatmapCalendar from '../components/HeatmapCalendar';
 import StatCard from '../components/StatCard';
-import { formatDate } from '../utils/date';
+import { formatDate, formatTime } from '../utils/date';
 import { cn } from '../lib/utils';
 
 const HabitDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { habits, currentHabit, recentCheckIns, fetchHabitDetail, deleteHabit, fetchCheckIns } = useHabitStore();
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const { habits, currentHabit, recentCheckIns, trendData, fetchHabitDetail, deleteHabit, fetchCheckIns, fetchTrend } = useHabitStore();
 
   useEffect(() => {
     if (id) {
       fetchHabitDetail(parseInt(id));
       fetchCheckIns(parseInt(id));
+      fetchTrend(parseInt(id));
     }
-  }, [id, fetchHabitDetail, fetchCheckIns]);
+  }, [id, fetchHabitDetail, fetchCheckIns, fetchTrend]);
 
   const habit = habits.find(h => h.id === parseInt(id || '')) || currentHabit;
   const habitStats = currentHabit ? {
@@ -149,6 +151,164 @@ const HabitDetailPage: React.FC = () => {
 
       {habitStats?.heatmapData && (
         <HeatmapCalendar data={habitStats.heatmapData} color={habit.color} />
+      )}
+
+      {trendData && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard
+              title="30天总打卡"
+              value={trendData.totalCheckIns}
+              suffix="次"
+              icon={<Activity className="w-6 h-6" />}
+              color="#3b82f6"
+            />
+            <StatCard
+              title="目标达成天数"
+              value={trendData.achievedDays}
+              suffix="天"
+              icon={<Target className="w-6 h-6" />}
+              color="#10b981"
+            />
+            <StatCard
+              title="漏打天数"
+              value={trendData.missedDays}
+              suffix="天"
+              icon={<XCircle className="w-6 h-6" />}
+              color="#ef4444"
+            />
+            <StatCard
+              title="日均次数"
+              value={trendData.averagePerDay}
+              suffix="次"
+              icon={<BarChart3 className="w-6 h-6" />}
+              color="#8b5cf6"
+            />
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-gray-800 mb-4">近30天趋势</h2>
+            <div className="relative h-48 flex items-end gap-1">
+              {trendData.dailyData.map((day, index) => {
+                const maxCount = Math.max(...trendData.dailyData.map(d => d.count), 1);
+                const heightPercent = maxCount > 0 ? (day.count / maxCount) * 100 : 0;
+                const isSelected = selectedDate === day.date;
+                const isToday = day.date === new Date().toISOString().split('T')[0];
+                
+                return (
+                  <div
+                    key={day.date}
+                    className="flex-1 flex flex-col items-center cursor-pointer group"
+                    onClick={() => setSelectedDate(isSelected ? null : day.date)}
+                  >
+                    <div className="w-full flex flex-col items-center justify-end h-40">
+                      <div
+                        className={cn(
+                          "w-full rounded-t-md transition-all duration-200",
+                          day.targetMet ? "bg-emerald-500" : "bg-gray-300",
+                          isSelected && "ring-2 ring-offset-2 ring-emerald-500",
+                          "hover:opacity-80"
+                        )}
+                        style={{
+                          height: `${Math.max(heightPercent, 4)}%`,
+                          minHeight: day.count > 0 ? '8px' : '2px'
+                        }}
+                        title={`${day.date}: ${day.count}次${day.targetMet ? ' (达标)' : ''}`}
+                      />
+                    </div>
+                    {(index % 5 === 0 || isToday) && (
+                      <span className="text-xs text-gray-400 mt-1">
+                        {isToday ? '今天' : day.date.slice(5)}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-emerald-500" />
+                <span className="text-sm text-gray-500">达标</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-gray-300" />
+                <span className="text-sm text-gray-500">未达标</span>
+              </div>
+            </div>
+          </div>
+
+          {selectedDate && (
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-800">
+                  {formatDate(selectedDate)} 打卡记录
+                </h2>
+                <button
+                  onClick={() => setSelectedDate(null)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+              {(() => {
+                const dayCheckIns = displayCheckIns.filter(
+                  c => formatDate(c.createdAt) === selectedDate
+                );
+                if (dayCheckIns.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-gray-500">
+                      当天没有打卡记录
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-4">
+                    {dayCheckIns.map(checkIn => (
+                      <div
+                        key={checkIn.id}
+                        className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl"
+                      >
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0"
+                          style={{ backgroundColor: habit.color }}
+                        >
+                          {habit.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-gray-800">
+                              {formatTime(checkIn.createdAt)}
+                            </span>
+                            {checkIn.mood && (
+                              <span className="text-lg">
+                                {['😢', '😕', '😐', '😊', '🤩'][checkIn.mood - 1]}
+                              </span>
+                            )}
+                          </div>
+                          {checkIn.content && (
+                            <p className="text-sm text-gray-600">{checkIn.content}</p>
+                          )}
+                          {checkIn.photos && checkIn.photos.length > 0 && (
+                            <div className="flex gap-2 mt-2">
+                              {checkIn.photos.slice(0, 3).map((photo, idx) => (
+                                <img
+                                  key={idx}
+                                  src={photo}
+                                  alt=""
+                                  className="w-16 h-16 rounded-lg object-cover"
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </div>
       )}
 
       <div className="bg-white rounded-2xl p-6 shadow-sm">

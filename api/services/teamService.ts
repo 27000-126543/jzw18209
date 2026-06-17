@@ -1,5 +1,5 @@
 import { teamRepository } from '../repositories/teamRepository';
-import { CreateTeamRequest, TeamDetail, Team, TeamProgress, TeamMemberExtended, TeamExtended } from '../../shared/types';
+import { CreateTeamRequest, TeamDetail, Team, TeamProgress, TeamMemberExtended, TeamExtended, TeamContribution, ContributionPeriod, CheckIn } from '../../shared/types';
 
 export const teamService = {
   async createTeam(creatorId: number, data: CreateTeamRequest): Promise<number> {
@@ -50,5 +50,13 @@ export const teamService = {
 
   async getTeamDetailExtended(teamId: number, userId: number | null): Promise<TeamExtended | null> {
     return teamRepository.getTeamDetailExtended(teamId, userId);
+  },
+
+  async getTeamContributions(teamId: number, period: ContributionPeriod, currentUserId: number | null): Promise<TeamContribution[]> {
+    return teamRepository.getTeamContributions(teamId, period, currentUserId);
+  },
+
+  async getMemberTeamCheckIns(teamId: number, userId: number): Promise<CheckIn[]> {
+    return teamRepository.getMemberTeamCheckIns(teamId, userId);
   }
 };

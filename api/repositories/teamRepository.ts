@@ -1,5 +1,5 @@
 import { runQuery, runQueryOne, runInsert, runUpdate } from '../db/database';
-import { Team, TeamDetail, TeamMember, TeamMemberExtended, TeamProgress, TeamExtended, CreateTeamRequest } from '../../shared/types';
+import { Team, TeamDetail, TeamMember, TeamMemberExtended, TeamProgress, TeamExtended, CreateTeamRequest, TeamContribution, ContributionPeriod, CheckIn } from '../../shared/types';
 import dayjs from 'dayjs';
 
 interface TeamRow {
@@ -351,6 +351,109 @@ export const teamRepository = {
       [code]
     );
     return row ? mapTeam(row) : null;
+  },
+
+  async getTeamContributions(teamId: number, period: ContributionPeriod, currentUserId: number | null): Promise<TeamContribution[]> {
+    const team = await this.findById(teamId);
+    if (!team) return [];
+
+    const habitId = team.habitId;
+    const today = dayjs();
+    let startDate: string;
+
+    switch (period) {
+      case 'today':
+        startDate = today.format('YYYY-MM-DD');
+        break;
+      case 'week':
+        startDate = today.startOf('week').format('YYYY-MM-DD');
+        break;
+      case 'month':
+        startDate = today.startOf('month').format('YYYY-MM-DD');
+        break;
+      default:
+        startDate = today.format('YYYY-MM-DD');
+    }
+
+    const habitCondition = habitId ? 'AND ci.habit_id = ?' : '';
+    const params = habitId ? [startDate, habitId, teamId] : [startDate, teamId];
+
+    const rows = await runQuery<{
+      user_id: number;
+      username: string;
+      avatar: string;
+      check_in_count: number;
+    }>(
+      `SELECT 
+         tm.user_id,
+         u.username,
+         u.avatar,
+         COUNT(ci.id) as check_in_count
+       FROM team_members tm
+       JOIN users u ON tm.user_id = u.id
+       LEFT JOIN check_ins ci ON tm.user_id = ci.user_id
+         AND DATE(ci.created_at) >= ?
+         ${habitCondition}
+       WHERE tm.team_id = ?
+       GROUP BY tm.user_id, u.username, u.avatar`,
+      params
+    );
+
+    const result: TeamContribution[] = [];
+    for (const row of rows) {
+      const streak = await calculateMemberStreak(row.user_id, habitId);
+      const achievedDays = await calculateAchievedDays(row.user_id, habitId, startDate);
+
+      result.push({
+        userId: row.user_id,
+        username: row.username,
+        avatar: row.avatar,
+        checkInCount: row.check_in_count || 0,
+        streak,
+        achievedDays,
+        isCurrentUser: currentUserId === row.user_id
+      });
+    }
+
+    return result.sort((a, b) => b.checkInCount - a.checkInCount);
+  },
+
+  async getMemberTeamCheckIns(teamId: number, userId: number): Promise<CheckIn[]> {
+    const team = await this.findById(teamId);
+    if (!team) return [];
+
+    const habitId = team.habitId;
+    const habitCondition = habitId ? 'AND ci.habit_id = ?' : '';
+    const params = habitId ? [teamId, userId, habitId] : [teamId, userId];
+
+    const rows = await runQuery<{
+      id: number;
+      user_id: number;
+      habit_id: number;
+      content: string;
+      photos: string;
+      mood: number;
+      created_at: string;
+    }>(
+      `SELECT ci.*
+       FROM check_ins ci
+       JOIN team_members tm ON ci.user_id = tm.user_id
+       WHERE tm.team_id = ?
+         AND ci.user_id = ?
+         ${habitCondition}
+       ORDER BY ci.created_at DESC`,
+      params
+    );
+
+    return rows.map(row => ({
+      id: row.id,
+      userId: row.user_id,
+      habitId: row.habit_id,
+      content: row.content,
+      photos: row.photos ? JSON.parse(row.photos) : [],
+      mood: row.mood,
+      createdAt: row.created_at
+    }));
   }
 };
 
@@ -428,4 +531,20 @@ async function calculateMemberTotalCheckIns(userId: number, habitId: number | nu
 function calculateTeamCurrentStreak(members: TeamMemberExtended[]): number {
   if (members.length === 0) return 0;
   return Math.min(...members.map(m => m.streak));
+}
+
+async function calculateAchievedDays(userId: number, habitId: number | null, startDate: string): Promise<number> {
+  const habitCondition = habitId ? 'AND habit_id = ?' : '';
+  const params = habitId ? [userId, startDate, habitId] : [userId, startDate];
+
+  const row = await runQueryOne<{ count: number }>(
+    `SELECT COUNT(DISTINCT DATE(created_at)) as count 
+     FROM check_ins 
+     WHERE user_id = ? 
+       AND DATE(created_at) >= ?
+       ${habitCondition}`,
+    params
+  );
+
+  return row?.count || 0;
 }

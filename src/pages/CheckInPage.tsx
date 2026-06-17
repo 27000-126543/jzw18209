@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Image, Send, Smile, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Camera, Image, Send, Smile, X } from 'lucide-react';
 import { useHabitStore } from '../store/useHabitStore';
 import { cn } from '../lib/utils';
 import { formatDate } from '../utils/date';
@@ -16,6 +16,7 @@ const CheckInPage: React.FC = () => {
   const [photos, setPhotos] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const moods = [
     { value: 1, emoji: '😢', label: '很差' },
@@ -45,6 +46,7 @@ const CheckInPage: React.FC = () => {
     e.preventDefault();
     if (!id) return;
 
+    setError(null);
     setIsSubmitting(true);
     try {
       await checkIn(parseInt(id), {
@@ -56,8 +58,10 @@ const CheckInPage: React.FC = () => {
       setTimeout(() => {
         navigate('/habits');
       }, 1500);
-    } catch (err) {
+    } catch (err: any) {
       console.error('打卡失败:', err);
+      const errorMessage = err.response?.data?.message || err.message || '打卡失败';
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -109,6 +113,24 @@ const CheckInPage: React.FC = () => {
             <p className="text-gray-500 text-sm">{formatDate(new Date())} 打卡</p>
           </div>
         </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-red-800 mb-2">{error}</p>
+                <div className="text-sm text-red-600 space-y-1">
+                  <p>当前时间：{new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</p>
+                  <p>截止时间：{habit.deadlineTime || '23:59'}</p>
+                </div>
+                <p className="text-sm text-red-500 mt-2">别灰心，明天继续加油！💪</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>

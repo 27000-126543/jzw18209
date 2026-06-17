@@ -17,6 +17,10 @@ export const formatDateTime = (date: string | Date): string => {
   return dayjs(date).format('YYYY-MM-DD HH:mm');
 };
 
+export const formatTime = (date: string | Date): string => {
+  return dayjs(date).format('HH:mm');
+};
+
 export const getDateString = (date: Date): string => {
   return dayjs(date).format('YYYY-MM-DD');
 };

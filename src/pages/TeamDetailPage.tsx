@@ -1,60 +1,87 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, Target, Calendar, Award, Plus, LogOut, Crown } from 'lucide-react';
+import { ArrowLeft, Users, Target, Calendar, Award, Plus, LogOut, Crown, Medal, X, Flame, CheckCircle2 } from 'lucide-react';
 import { teamsApi } from '../api';
-import { TeamDetail, TeamMemberExtended, TeamProgress } from '../../shared/types';
+import { TeamDetail, TeamProgress, TeamContribution, ContributionPeriod, CheckIn, TeamExtended } from '../../shared/types';
 import { Loader2 } from 'lucide-react';
-import { formatDate } from '../utils/date';
+import { formatDate, formatRelativeTime } from '../utils/date';
 import { cn } from '../lib/utils';
 import { useAuthStore } from '../store/useAuthStore';
+import { useTeamStore } from '../store/useTeamStore';
 
 const TeamDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [team, setTeam] = useState<TeamDetail | null>(null);
-  const [members, setMembers] = useState<TeamMemberExtended[]>([]);
   const [progress, setProgress] = useState<TeamProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [isJoined, setIsJoined] = useState(false);
+  const [period, setPeriod] = useState<ContributionPeriod>('week');
 
-  useEffect(() => {
-    if (id) {
-      loadTeamData(parseInt(id));
-    }
-  }, [id]);
+  const {
+    contributions,
+    memberCheckIns,
+    contributionsLoading,
+    checkInsLoading,
+    showCheckInModal,
+    selectedMemberId,
+    fetchContributions,
+    fetchMemberCheckIns,
+    setShowCheckInModal,
+  } = useTeamStore();
 
-  const loadTeamData = async (teamId: number) => {
+  const loadTeamData = useCallback(async (teamId: number) => {
     setLoading(true);
     try {
-      const [teamRes, membersRes, progressRes] = await Promise.all([
+      const [teamRes, progressRes] = await Promise.all([
         teamsApi.getTeamById(teamId),
-        teamsApi.getTeamMembers(teamId),
         teamsApi.getTeamProgress(teamId)
       ]);
-      
-      const membersWithExtra: TeamMemberExtended[] = membersRes.map((m, idx) => ({
+
+      const membersWithExtra = teamRes.members.map((m, idx) => ({
         ...m,
-        id: m.id || (m as any).userId || idx,
-        userId: m.userId || (m as any).id || idx,
+        id: m.id || idx,
+        userId: m.userId || idx,
         teamId,
         username: m.username || '',
         avatar: m.avatar || '',
         joinedAt: m.joinedAt || teamRes.createdAt,
         todayCompleted: m.todayCompleted || false,
-        isCurrentUser: user ? (m.userId === user.id || (m as any).id === user.id) : false,
-        streak: (m as any).streak || (m as any).currentStreak || 0,
-        totalCheckIns: (m as any).totalCheckIns || 0
+        isCurrentUser: user ? m.userId === user.id : false,
+        streak: 0,
+        totalCheckIns: 0
       }));
-      
+
       setTeam(teamRes);
-      setMembers(membersWithExtra);
       setProgress(progressRes);
       setIsJoined(membersWithExtra.some(m => m.isCurrentUser));
     } catch (err) {
       console.error('加载队伍信息失败:', err);
     } finally {
       setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (id) {
+      loadTeamData(parseInt(id));
+    }
+  }, [id, loadTeamData]);
+
+  useEffect(() => {
+    if (id) {
+      fetchContributions(parseInt(id), period);
+    }
+  }, [id, period, fetchContributions]);
+
+  const handlePeriodChange = (newPeriod: ContributionPeriod) => {
+    setPeriod(newPeriod);
+  };
+
+  const handleMemberClick = (contribution: TeamContribution) => {
+    if (id) {
+      fetchMemberCheckIns(parseInt(id), contribution.userId);
     }
   };
 
@@ -80,6 +107,23 @@ const TeamDetailPage: React.FC = () => {
     }
   };
 
+  const getRankIcon = (rank: number) => {
+    switch (rank) {
+      case 0:
+        return <Crown className="w-5 h-5 text-yellow-500" />;
+      case 1:
+        return <Medal className="w-5 h-5 text-gray-400" />;
+      case 2:
+        return <Medal className="w-5 h-5 text-amber-600" />;
+      default:
+        return <span className="text-gray-400 font-bold">{rank + 1}</span>;
+    }
+  };
+
+  const getSelectedMemberInfo = () => {
+    return contributions.find(c => c.userId === selectedMemberId);
+  };
+
   if (loading || !team) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-gray-400">
@@ -89,16 +133,22 @@ const TeamDetailPage: React.FC = () => {
     );
   }
   
-  const completedCount = members.filter(m => {
+  const completedCount = team.members.filter(m => {
     if (team.habitId) {
       return m.todayCompleted;
     }
     return m.todayCompleted;
   }).length;
   
-  const completionRate = members.length > 0 ? Math.round((completedCount / members.length) * 100) : 0;
+  const completionRate = team.members.length > 0 ? Math.round((completedCount / team.members.length) * 100) : 0;
 
-  const teamExtended = team as any;
+  const teamExtended = team as TeamDetail & Partial<TeamExtended>;
+
+  const periodTabs: { key: ContributionPeriod; label: string }[] = [
+    { key: 'today', label: '今日' },
+    { key: 'week', label: '本周' },
+    { key: 'month', label: '本月' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -131,7 +181,7 @@ const TeamDetailPage: React.FC = () => {
                 <div className="flex items-center gap-4 mt-3 text-sm text-white/70">
                   <span className="flex items-center gap-1">
                     <Users className="w-4 h-4" />
-                    {members.length} 名成员
+                    {team.members.length} 名成员
                   </span>
                   <span className="flex items-center gap-1">
                     <Target className="w-4 h-4" />
@@ -173,7 +223,7 @@ const TeamDetailPage: React.FC = () => {
             <div>
               <p className="text-sm text-gray-500 font-medium">今日完成</p>
               <p className="text-2xl font-bold text-gray-800 mt-2">
-                {completedCount}/{members.length}
+                {completedCount}/{team.members.length}
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center">
@@ -221,57 +271,84 @@ const TeamDetailPage: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <h2 className="text-lg font-bold text-gray-800 mb-4">成员排行榜</h2>
-        {members.length === 0 ? (
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-gray-800">成员排行榜</h2>
+          <div className="flex bg-gray-100 rounded-xl p-1">
+            {periodTabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => handlePeriodChange(tab.key)}
+                className={cn(
+                  "px-4 py-1.5 text-sm font-medium rounded-lg transition-all",
+                  period === tab.key
+                    ? "bg-white text-emerald-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {contributionsLoading ? (
+          <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+            <Loader2 className="w-6 h-6 animate-spin mb-2" />
+            <p className="text-sm">加载中...</p>
+          </div>
+        ) : contributions.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             暂无成员
           </div>
         ) : (
           <div className="space-y-3">
-            {members.sort((a, b) => (b.streak || 0) - (a.streak || 0)).map((member, idx) => (
+            {contributions.map((contribution, idx) => (
               <div
-                key={member.id}
+                key={contribution.userId}
+                onClick={() => handleMemberClick(contribution)}
                 className={cn(
-                  "flex items-center justify-between p-4 rounded-xl transition-colors",
-                  member.todayCompleted ? "bg-emerald-50" : "bg-gray-50"
+                  "flex items-center justify-between p-4 rounded-xl transition-all cursor-pointer",
+                  "hover:shadow-md hover:scale-[1.01]",
+                  idx < 3 ? "bg-gradient-to-r from-amber-50 to-orange-50" : "bg-gray-50 hover:bg-gray-100"
                 )}
               >
                 <div className="flex items-center gap-4">
                   <div className="w-8 h-8 flex items-center justify-center">
-                    {idx === 0 ? (
-                      <Crown className="w-5 h-5 text-yellow-500" />
-                    ) : idx === 1 ? (
-                      <span className="text-gray-400 font-bold">2</span>
-                    ) : idx === 2 ? (
-                      <span className="text-gray-400 font-bold">3</span>
-                    ) : (
-                      <span className="text-gray-400">{idx + 1}</span>
-                    )}
+                    {getRankIcon(idx)}
                   </div>
                   <img
-                    src={member.avatar}
-                    alt={member.username}
-                    className="w-10 h-10 rounded-full object-cover"
+                    src={contribution.avatar}
+                    alt={contribution.username}
+                    className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-sm"
                   />
                   <div>
                     <p className="font-medium text-gray-800">
-                      {member.username}
-                      {member.isCurrentUser && (
+                      {contribution.username}
+                      {contribution.isCurrentUser && (
                         <span className="ml-2 text-xs text-emerald-600">（我）</span>
                       )}
                     </p>
-                    <p className="text-xs text-gray-500">
-                      连续 {member.streak || 0} 天 · {member.totalCheckIns || 0} 次打卡
-                    </p>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                        {contribution.checkInCount} 次打卡
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Flame className="w-3.5 h-3.5 text-orange-500" />
+                        连续 {contribution.streak} 天
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                        达标 {contribution.achievedDays} 天
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <div className={cn(
-                  "px-3 py-1 rounded-full text-xs font-medium",
-                  member.todayCompleted
-                    ? "bg-emerald-100 text-emerald-600"
-                    : "bg-gray-100 text-gray-500"
-                )}>
-                  {member.todayCompleted ? '已打卡' : '待打卡'}
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-emerald-600">
+                    {contribution.checkInCount}
+                  </p>
+                  <p className="text-xs text-gray-400">次</p>
                 </div>
               </div>
             ))}
@@ -301,6 +378,97 @@ const TeamDetailPage: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {showCheckInModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                {getSelectedMemberInfo() && (
+                  <>
+                    <img
+                      src={getSelectedMemberInfo()!.avatar}
+                      alt={getSelectedMemberInfo()!.username}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                    <div>
+                      <h3 className="font-bold text-gray-800">
+                        {getSelectedMemberInfo()!.username} 的打卡记录
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        队伍绑定习惯的打卡记录
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+              <button
+                onClick={() => setShowCheckInModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {checkInsLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                  <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                  <p>加载中...</p>
+                </div>
+              ) : memberCheckIns.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>暂无打卡记录</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {memberCheckIns.map((checkIn) => (
+                    <CheckInItem key={checkIn.id} checkIn={checkIn} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const CheckInItem: React.FC<{ checkIn: CheckIn }> = ({ checkIn }) => {
+  const moodEmojis = ['😢', '😕', '😐', '😊', '🤩'];
+
+  return (
+    <div className="bg-gray-50 rounded-2xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm text-gray-500">
+          {formatRelativeTime(checkIn.createdAt)}
+        </span>
+        {checkIn.mood && (
+          <span className="text-xl">{moodEmojis[checkIn.mood - 1]}</span>
+        )}
+      </div>
+      {checkIn.content && (
+        <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">
+          {checkIn.content}
+        </p>
+      )}
+      {checkIn.photos && checkIn.photos.length > 0 && (
+        <div className={cn(
+          "mt-3 grid gap-2",
+          checkIn.photos.length === 1 ? "grid-cols-1" : checkIn.photos.length === 2 ? "grid-cols-2" : "grid-cols-3"
+        )}>
+          {checkIn.photos.map((photo, idx) => (
+            <img
+              key={idx}
+              src={photo}
+              alt=""
+              className="w-full aspect-square object-cover rounded-xl"
+            />
+          ))}
         </div>
       )}
     </div>

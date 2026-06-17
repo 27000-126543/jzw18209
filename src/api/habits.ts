@@ -1,5 +1,5 @@
 import client from './client';
-import { CreateHabitRequest, HabitListResponse, HabitDetail, HabitStatistics, TodayProgress, CheckIn } from '../../shared/types';
+import { CreateHabitRequest, HabitListResponse, HabitDetail, HabitStatistics, TodayProgress, CheckIn, HabitTrend } from '../../shared/types';
 
 export const habitsApi = {
   create: (data: CreateHabitRequest) =>
@@ -25,4 +25,10 @@ export const habitsApi = {
 
   getCheckIns: (habitId: number) =>
     client.get<CheckIn[]>(`/habits/${habitId}/checkins`).then(res => res.data),
+
+  getPublicTypes: () =>
+    client.get<Array<{ id: number; name: string; icon: string; color: string }>>('/habits/public-types').then(res => res.data),
+
+  getTrend: (habitId: number) =>
+    client.get<HabitTrend>(`/habits/${habitId}/trend`).then(res => res.data),
 };

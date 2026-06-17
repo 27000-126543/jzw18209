@@ -1,5 +1,5 @@
 import client from './client';
-import { CreateTeamRequest, TeamDetail, TeamExtended, TeamProgress, TeamMemberExtended } from '../../shared/types';
+import { CreateTeamRequest, TeamDetail, TeamExtended, TeamProgress, TeamMemberExtended, TeamContribution, ContributionPeriod, CheckIn } from '../../shared/types';
 
 export const teamsApi = {
   create: (data: CreateTeamRequest) =>
@@ -28,4 +28,10 @@ export const teamsApi = {
 
   joinByCode: (code: string) =>
     client.post<{ success: boolean; teamId: number }>('/teams/join-by-code', { code }).then(res => res.data),
+
+  getContributions: (teamId: number, period: ContributionPeriod = 'week') =>
+    client.get<TeamContribution[]>(`/teams/${teamId}/contributions`, { params: { period } }).then(res => res.data),
+
+  getMemberCheckIns: (teamId: number, userId: number) =>
+    client.get<CheckIn[]>(`/teams/${teamId}/members/${userId}/checkins`).then(res => res.data),
 };

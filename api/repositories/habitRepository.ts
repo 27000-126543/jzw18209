@@ -1,5 +1,5 @@
 import { runQuery, runQueryOne, runInsert, runUpdate } from '../db/database';
-import { Habit, HabitDetail, CheckIn, CreateHabitRequest, TodayProgress } from '../../shared/types';
+import { Habit, HabitDetail, CheckIn, CreateHabitRequest, TodayProgress, HabitTrend } from '../../shared/types';
 import dayjs from 'dayjs';
 
 interface HabitRow {
@@ -161,6 +161,71 @@ export const habitRepository = {
     await runUpdate('DELETE FROM check_ins WHERE habit_id = ?', [habitId]);
     const changes = await runUpdate('DELETE FROM habits WHERE id = ?', [habitId]);
     return changes > 0;
+  },
+
+  async getPublicHabitTypes(): Promise<Array<{ id: number; name: string; icon: string; color: string }>> {
+    const rows = await runQuery<{ id: number; name: string; icon: string; color: string }>(
+      `SELECT DISTINCT h.id, h.name, h.icon, h.color 
+       FROM habits h
+       WHERE h.is_public = 1
+       ORDER BY h.name ASC`
+    );
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      icon: row.icon,
+      color: row.color
+    }));
+  },
+
+  async getHabitTrend(habitId: number, userId: number, days: number = 30): Promise<HabitTrend | null> {
+    const habit = await this.findById(habitId);
+    if (!habit || habit.userId !== userId) return null;
+
+    const endDate = dayjs();
+    const startDate = endDate.subtract(days - 1, 'day');
+    const startDateStr = startDate.format('YYYY-MM-DD');
+    const endDateStr = endDate.format('YYYY-MM-DD');
+
+    const rows = await runQuery<{ date: string; count: number }>(
+      `SELECT DATE(created_at) as date, COUNT(*) as count 
+       FROM check_ins 
+       WHERE habit_id = ? AND user_id = ? 
+       AND DATE(created_at) BETWEEN ? AND ?
+       GROUP BY DATE(created_at)
+       ORDER BY date ASC`,
+      [habitId, userId, startDateStr, endDateStr]
+    );
+
+    const countMap = new Map<string, number>();
+    rows.forEach(row => countMap.set(row.date, row.count));
+
+    const dailyData: { date: string; count: number; targetMet: boolean }[] = [];
+    let achievedDays = 0;
+    let totalCheckIns = 0;
+
+    for (let i = 0; i < days; i++) {
+      const date = startDate.add(i, 'day').format('YYYY-MM-DD');
+      const count = countMap.get(date) || 0;
+      const targetMet = count >= habit.targetCount;
+      
+      if (targetMet) achievedDays++;
+      totalCheckIns += count;
+
+      dailyData.push({
+        date,
+        count,
+        targetMet
+      });
+    }
+
+    return {
+      dailyData,
+      achievedDays,
+      missedDays: days - achievedDays,
+      totalCheckIns,
+      averagePerDay: Math.round((totalCheckIns / days) * 10) / 10
+    };
   }
 };
 
@@ -334,11 +399,13 @@ export async function getUserStatistics(userId: number) {
     heatmapData.push({ date, count: heatmapMap.get(date) || 0 });
   }
 
-  const totalDays = dayjs().diff(dayjs().startOf('month'), 'day') + 1;
-  const todayProgress = await habitRepository.getTodayProgress(userId);
-  const dailyHabits = habits.filter(h => h.frequency === 'daily');
-  const monthlyRate = dailyHabits.length > 0
-    ? Math.round((completedTargets / dailyHabits.length) * (todayProgress.filter(p => p.habitId !== undefined && habits.find(h => h.id === p.habitId)?.frequency === 'daily').length / totalDays) * 100)
+  const habitRates: number[] = [];
+  for (const habit of habits) {
+    const rate = await calculateMonthlyRate(habit.id, userId);
+    habitRates.push(rate);
+  }
+  const monthlyRate = habitRates.length > 0
+    ? Math.min(100, Math.round(habitRates.reduce((sum, rate) => sum + rate, 0) / habitRates.length))
     : 0;
 
   const badgesRow = await runQueryOne<{ count: number }>(

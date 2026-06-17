@@ -1,5 +1,5 @@
 import { habitRepository } from '../repositories/habitRepository';
-import { CreateHabitRequest, HabitListResponse, HabitDetail } from '../../shared/types';
+import { CreateHabitRequest, HabitListResponse, HabitDetail, HabitTrend } from '../../shared/types';
 
 export const habitService = {
   async createHabit(userId: number, data: CreateHabitRequest): Promise<number> {
@@ -26,5 +26,13 @@ export const habitService = {
 
   async getTodayProgress(userId: number) {
     return habitRepository.getTodayProgress(userId);
+  },
+
+  async getHabitTrend(habitId: number, userId: number, days: number): Promise<HabitTrend | null> {
+    return habitRepository.getHabitTrend(habitId, userId, days);
+  },
+
+  async getPublicHabitTypes() {
+    return habitRepository.getPublicHabitTypes();
   }
 };

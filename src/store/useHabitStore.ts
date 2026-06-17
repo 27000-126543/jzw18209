@@ -10,6 +10,7 @@ import {
   Badge,
   CreateHabitRequest,
   CheckInRequest,
+  HabitTrend,
 } from '../../shared/types';
 
 interface HabitState {
@@ -18,11 +19,13 @@ interface HabitState {
   statistics: HabitStatistics;
   recentCheckIns: CheckIn[];
   currentHabit: HabitDetail | null;
+  trendData: HabitTrend | null;
   loading: boolean;
   fetchHabits: () => Promise<void>;
   fetchStatistics: () => Promise<void>;
   fetchHabitDetail: (id: number) => Promise<HabitDetail | null>;
   fetchCheckIns: (habitId: number) => Promise<void>;
+  fetchTrend: (habitId: number) => Promise<HabitTrend | null>;
   fetchHeatmapData?: (habitId: number) => Promise<{ date: string; count: number }[]>;
   createHabit: (data: CreateHabitRequest) => Promise<number>;
   updateHabit: (id: number, data: Partial<CreateHabitRequest>) => Promise<boolean>;
@@ -56,6 +59,7 @@ export const useHabitStore = create<HabitState>((set, get) => ({
   statistics: emptyStatistics,
   recentCheckIns: [],
   currentHabit: null,
+  trendData: null,
   loading: false,
 
   fetchHabits: async () => {
@@ -105,6 +109,19 @@ export const useHabitStore = create<HabitState>((set, get) => ({
     } catch (error) {
       set({ loading: false });
       console.error('Fetch check-ins failed:', error);
+    }
+  },
+
+  fetchTrend: async (habitId: number) => {
+    set({ loading: true });
+    try {
+      const trend = await habitsApi.getTrend(habitId);
+      set({ trendData: trend, loading: false });
+      return trend;
+    } catch (error) {
+      set({ loading: false, trendData: null });
+      console.error('Fetch trend data failed:', error);
+      return null;
     }
   },
 

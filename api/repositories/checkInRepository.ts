@@ -66,8 +66,34 @@ export const checkInRepository = {
     };
   },
 
-  async getExploreFeed(userId: number | null): Promise<{ featured: CheckInFeed[]; trending: CheckInFeed[] }> {
-    const featuredRows = await runQuery<CheckInFeedRow>(
+  async getExploreFeed(
+    userId: number | null,
+    options: {
+      habitId?: number;
+      keyword?: string;
+      sortBy: 'latest' | 'popular';
+    }
+  ): Promise<CheckInFeed[]> {
+    const { habitId, keyword, sortBy } = options;
+    
+    const whereClauses: string[] = ['h.is_public = 1'];
+    const params: unknown[] = [userId || 0];
+
+    if (habitId) {
+      whereClauses.push('ci.habit_id = ?');
+      params.push(habitId);
+    }
+
+    if (keyword) {
+      whereClauses.push('(ci.content LIKE ? OR h.name LIKE ?)');
+      params.push(`%${keyword}%`, `%${keyword}%`);
+    }
+
+    const orderBy = sortBy === 'popular' 
+      ? 'likes_count DESC, ci.created_at DESC' 
+      : 'ci.created_at DESC';
+
+    const rows = await runQuery<CheckInFeedRow>(
       `SELECT ci.*, 
               u.username, u.avatar,
               h.name as habit_name, h.icon as habit_icon,
@@ -77,33 +103,13 @@ export const checkInRepository = {
        FROM check_ins ci
        JOIN users u ON ci.user_id = u.id
        JOIN habits h ON ci.habit_id = h.id
-       WHERE h.is_public = 1
-       ORDER BY likes_count DESC, ci.created_at DESC
-       LIMIT 10`,
-      [userId || 0]
+       WHERE ${whereClauses.join(' AND ')}
+       ORDER BY ${orderBy}
+       LIMIT 50`,
+      params
     );
 
-    const trendingRows = await runQuery<CheckInFeedRow>(
-      `SELECT ci.*, 
-              u.username, u.avatar,
-              h.name as habit_name, h.icon as habit_icon,
-              (SELECT COUNT(*) FROM likes l WHERE l.checkin_id = ci.id) as likes_count,
-              (SELECT COUNT(*) FROM comments c WHERE c.checkin_id = ci.id) as comments_count,
-              EXISTS(SELECT 1 FROM likes l WHERE l.checkin_id = ci.id AND l.user_id = ?) as is_liked
-       FROM check_ins ci
-       JOIN users u ON ci.user_id = u.id
-       JOIN habits h ON ci.habit_id = h.id
-       WHERE h.is_public = 1
-       AND DATE(ci.created_at) >= DATE('now', '-7 days')
-       ORDER BY ci.created_at DESC
-       LIMIT 20`,
-      [userId || 0]
-    );
-
-    return {
-      featured: featuredRows.map(mapCheckInFeed),
-      trending: trendingRows.map(mapCheckInFeed)
-    };
+    return rows.map(mapCheckInFeed);
   },
 
   async toggleLike(checkInId: number, userId: number): Promise<{ liked: boolean; likesCount: number }> {

@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { teamService } from '../services/teamService';
-import { CreateTeamRequest, TeamProgress, TeamMemberExtended, TeamExtended } from '../../shared/types';
+import { CreateTeamRequest, TeamProgress, TeamMemberExtended, TeamExtended, TeamContribution, ContributionPeriod, CheckIn } from '../../shared/types';
 
 export const teamController = {
   async create(req: AuthRequest, res: Response) {
@@ -114,6 +114,31 @@ export const teamController = {
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: '获取队伍成员失败' });
+    }
+  },
+
+  async contributions(req: AuthRequest, res: Response) {
+    try {
+      const teamId = parseInt(req.params.id);
+      const period = (req.query.period as ContributionPeriod) || 'week';
+      if (!['today', 'week', 'month'].includes(period)) {
+        return res.status(400).json({ error: '无效的周期参数' });
+      }
+      const result = await teamService.getTeamContributions(teamId, period, req.userId || null) as TeamContribution[];
+      res.json(result);
+    } catch (_error) {
+      res.status(500).json({ error: '获取队伍贡献统计失败' });
+    }
+  },
+
+  async memberCheckIns(req: AuthRequest, res: Response) {
+    try {
+      const teamId = parseInt(req.params.id);
+      const userId = parseInt(req.params.userId);
+      const result = await teamService.getMemberTeamCheckIns(teamId, userId) as CheckIn[];
+      res.json(result);
+    } catch (_error) {
+      res.status(500).json({ error: '获取成员打卡记录失败' });
     }
   }
 };

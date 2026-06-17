@@ -243,6 +243,18 @@ export interface TeamMemberExtended {
   totalCheckIns: number;
 }
 
+export interface TeamContribution {
+  userId: number;
+  username: string;
+  avatar: string;
+  checkInCount: number;
+  streak: number;
+  achievedDays: number;
+  isCurrentUser: boolean;
+}
+
+export type ContributionPeriod = 'today' | 'week' | 'month';
+
 export interface TeamExtended extends Team {
   icon: string;
   color: string;
@@ -251,4 +263,18 @@ export interface TeamExtended extends Team {
   membersCount: number;
   targetCount: number;
   endDate: string;
+}
+
+export interface HabitTrendDailyData {
+  date: string;
+  count: number;
+  targetMet: boolean;
+}
+
+export interface HabitTrend {
+  dailyData: HabitTrendDailyData[];
+  achievedDays: number;
+  missedDays: number;
+  totalCheckIns: number;
+  averagePerDay: number;
 }

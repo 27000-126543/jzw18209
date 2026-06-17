@@ -29,7 +29,15 @@ export const checkInController = {
 
   async explore(req: AuthRequest, res: Response) {
     try {
-      const result = await checkInService.getExploreFeed(req.userId || null);
+      const habitId = req.query.habitId ? parseInt(req.query.habitId as string) : undefined;
+      const keyword = req.query.keyword as string | undefined;
+      const sortBy = (req.query.sortBy as 'latest' | 'popular') || 'latest';
+      
+      const result = await checkInService.getExploreFeed(req.userId || null, {
+        habitId,
+        keyword,
+        sortBy
+      });
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: '获取发现内容失败' });

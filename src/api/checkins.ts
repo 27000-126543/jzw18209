@@ -8,8 +8,14 @@ export const checkInsApi = {
   feed: (cursor: number = 0, limit: number = 20) =>
     client.get<FeedResponse>('/checkins/feed', { params: { cursor, limit } }).then(res => res.data),
 
-  publicFeed: (hot?: boolean) =>
-    client.get<CheckInFeed[]>('/checkins/public', { params: hot ? { hot } : undefined }).then(res => res.data),
+  publicFeed: (hot?: boolean, habitId?: number, keyword?: string) =>
+    client.get<CheckInFeed[]>('/checkins/explore', { 
+      params: { 
+        sortBy: hot ? 'popular' : 'latest',
+        ...(habitId ? { habitId } : {}),
+        ...(keyword ? { keyword } : {})
+      } 
+    }).then(res => res.data),
 
   exploreUsers: () =>
     client.get<ExploreUser[]>('/checkins/explore/users').then(res => res.data),

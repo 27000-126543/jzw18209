@@ -111,5 +111,29 @@ export const habitController = {
     } catch (error) {
       res.status(500).json({ error: '获取用户统计失败' });
     }
+  },
+
+  async trend(req: AuthRequest, res: Response) {
+    try {
+      if (!req.userId) return res.status(401).json({ error: '未授权' });
+      const habitId = parseInt(req.params.id);
+      const days = parseInt(req.query.days as string) || 30;
+      const result = await habitService.getHabitTrend(habitId, req.userId, days);
+      if (!result) {
+        return res.status(404).json({ error: '习惯不存在' });
+      }
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: '获取趋势数据失败' });
+    }
+  },
+
+  async publicTypes(req: AuthRequest, res: Response) {
+    try {
+      const types = await habitService.getPublicHabitTypes();
+      res.json(types);
+    } catch (error) {
+      res.status(500).json({ error: '获取公开习惯类型失败' });
+    }
   }
 };
