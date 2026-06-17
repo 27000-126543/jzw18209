@@ -269,6 +269,7 @@ export interface HabitTrendDailyData {
   date: string;
   count: number;
   targetMet: boolean;
+  checkIns: CheckIn[];
 }
 
 export interface HabitTrend {

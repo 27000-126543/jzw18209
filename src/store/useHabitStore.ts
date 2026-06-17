@@ -177,32 +177,36 @@ export const useHabitStore = create<HabitState>((set, get) => ({
 
   checkIn: async (habitId, data) => {
     const checkInData: CheckInRequest = { habitId, ...data };
-    const result = await checkInsApi.create(checkInData);
+    try {
+      const result = await checkInsApi.create(checkInData);
 
-    const targetHabit = get().habits.find((h) => h.id === habitId);
-    const targetCount = targetHabit?.targetCount ?? result.targetCount ?? 1;
+      const targetHabit = get().habits.find((h) => h.id === habitId);
+      const targetCount = targetHabit?.targetCount ?? result.targetCount ?? 1;
 
-    set((state) => ({
-      todayProgress: state.todayProgress.map((p) =>
-        p.habitId === habitId
-          ? {
-              ...p,
-              currentCount: result.currentCount,
-              targetCount,
-              completed: result.completed,
-              completionRate: Math.min(100, (result.currentCount / targetCount) * 100),
-            }
-          : p
-      ),
-    }));
+      set((state) => ({
+        todayProgress: state.todayProgress.map((p) =>
+          p.habitId === habitId
+            ? {
+                ...p,
+                currentCount: result.currentCount,
+                targetCount,
+                completed: result.completed,
+                completionRate: Math.min(100, (result.currentCount / targetCount) * 100),
+              }
+            : p
+        ),
+      }));
 
-    return {
-      success: true,
-      newBadge: result.newBadge as Badge | null,
-      currentCount: result.currentCount,
-      targetCount,
-      completed: result.completed,
-    };
+      return {
+        success: true,
+        newBadge: result.newBadge as Badge | null,
+        currentCount: result.currentCount,
+        targetCount,
+        completed: result.completed,
+      };
+    } catch (error) {
+      throw error;
+    }
   },
 
   refreshProgress: async () => {

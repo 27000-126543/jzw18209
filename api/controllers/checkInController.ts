@@ -6,12 +6,13 @@ import { CheckInRequest, CommentRequest, Badge } from '../../shared/types';
 export const checkInController = {
   async create(req: AuthRequest, res: Response) {
     try {
-      if (!req.userId) return res.status(401).json({ error: '未授权' });
+      if (!req.userId) return res.status(401).json({ message: '未授权' });
       const data = req.body as CheckInRequest;
       const result = await checkInService.createCheckIn(req.userId, data);
       res.json(result);
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : '打卡失败' });
+      const message = error instanceof Error ? error.message : '打卡失败';
+      res.status(400).json({ message, error: message });
     }
   },
 

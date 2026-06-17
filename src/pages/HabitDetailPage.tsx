@@ -251,13 +251,12 @@ const HabitDetailPage: React.FC = () => {
                 </button>
               </div>
               {(() => {
-                const dayCheckIns = displayCheckIns.filter(
-                  c => formatDate(c.createdAt) === selectedDate
-                );
+                const dayData = trendData?.dailyData.find(d => d.date === selectedDate);
+                const dayCheckIns = dayData?.checkIns || [];
                 if (dayCheckIns.length === 0) {
                   return (
                     <div className="text-center py-8 text-gray-500">
-                      当天没有打卡记录
+                      当天暂无打卡记录
                     </div>
                   );
                 }

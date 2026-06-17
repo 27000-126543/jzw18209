@@ -17,7 +17,7 @@ const TeamDetailPage: React.FC = () => {
   const [progress, setProgress] = useState<TeamProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [isJoined, setIsJoined] = useState(false);
-  const [period, setPeriod] = useState<ContributionPeriod>('week');
+  const [period, setPeriod] = useState<ContributionPeriod>('today');
 
   const {
     contributions,
@@ -296,62 +296,73 @@ const TeamDetailPage: React.FC = () => {
             <Loader2 className="w-6 h-6 animate-spin mb-2" />
             <p className="text-sm">加载中...</p>
           </div>
-        ) : contributions.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            暂无成员
-          </div>
         ) : (
           <div className="space-y-3">
-            {contributions.map((contribution, idx) => (
-              <div
-                key={contribution.userId}
-                onClick={() => handleMemberClick(contribution)}
-                className={cn(
-                  "flex items-center justify-between p-4 rounded-xl transition-all cursor-pointer",
-                  "hover:shadow-md hover:scale-[1.01]",
-                  idx < 3 ? "bg-gradient-to-r from-amber-50 to-orange-50" : "bg-gray-50 hover:bg-gray-100"
-                )}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-8 h-8 flex items-center justify-center">
-                    {getRankIcon(idx)}
-                  </div>
-                  <img
-                    src={contribution.avatar}
-                    alt={contribution.username}
-                    className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-sm"
-                  />
-                  <div>
-                    <p className="font-medium text-gray-800">
-                      {contribution.username}
-                      {contribution.isCurrentUser && (
-                        <span className="ml-2 text-xs text-emerald-600">（我）</span>
-                      )}
-                    </p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                        {contribution.checkInCount} 次打卡
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Flame className="w-3.5 h-3.5 text-orange-500" />
-                        连续 {contribution.streak} 天
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                        达标 {contribution.achievedDays} 天
-                      </span>
+            {(contributions || []).length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              暂无成员数据
+            </div>
+          ) : (
+            (contributions || []).map((contribution, idx) => {
+              const avatar = contribution.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default';
+              const username = contribution.username || '匿名用户';
+              const checkInCount = contribution.checkInCount ?? 0;
+              const streak = contribution.streak ?? 0;
+              const achievedDays = contribution.achievedDays ?? 0;
+              const isCurrentUser = contribution.userId === user?.id;
+              
+              return (
+                <div
+                  key={contribution.userId}
+                  onClick={() => handleMemberClick(contribution)}
+                  className={cn(
+                    "flex items-center justify-between p-4 rounded-xl transition-all cursor-pointer",
+                    "hover:shadow-md hover:scale-[1.01]",
+                    idx < 3 ? "bg-gradient-to-r from-amber-50 to-orange-50" : "bg-gray-50 hover:bg-gray-100"
+                  )}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-8 h-8 flex items-center justify-center">
+                      {getRankIcon(idx)}
+                    </div>
+                    <img
+                      src={avatar}
+                      alt={username}
+                      className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-sm"
+                    />
+                    <div>
+                      <p className="font-medium text-gray-800">
+                        {username}
+                        {isCurrentUser && (
+                          <span className="ml-2 text-xs text-emerald-600">（我）</span>
+                        )}
+                      </p>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                          {checkInCount} 次打卡
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Flame className="w-3.5 h-3.5 text-orange-500" />
+                          连续 {streak} 天
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                          达标 {achievedDays} 天
+                        </span>
+                      </div>
                     </div>
                   </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-emerald-600">
+                      {checkInCount}
+                    </p>
+                    <p className="text-xs text-gray-400">次</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-emerald-600">
-                    {contribution.checkInCount}
-                  </p>
-                  <p className="text-xs text-gray-400">次</p>
-                </div>
-              </div>
-            ))}
+              );
+            })
+          )}
           </div>
         )}
       </div>
@@ -386,23 +397,39 @@ const TeamDetailPage: React.FC = () => {
           <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div className="flex items-center gap-3">
-                {getSelectedMemberInfo() && (
-                  <>
-                    <img
-                      src={getSelectedMemberInfo()!.avatar}
-                      alt={getSelectedMemberInfo()!.username}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                    <div>
-                      <h3 className="font-bold text-gray-800">
-                        {getSelectedMemberInfo()!.username} 的打卡记录
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        队伍绑定习惯的打卡记录
-                      </p>
-                    </div>
-                  </>
-                )}
+                {(() => {
+                  const memberInfo = getSelectedMemberInfo();
+                  if (!memberInfo) {
+                    return (
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse" />
+                        <div>
+                          <h3 className="font-bold text-gray-800">加载中...</h3>
+                          <p className="text-xs text-gray-500">队伍绑定习惯的打卡记录</p>
+                        </div>
+                      </div>
+                    );
+                  }
+                  const avatar = memberInfo.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default';
+                  const username = memberInfo.username || '匿名用户';
+                  return (
+                    <>
+                      <img
+                        src={avatar}
+                        alt={username}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                      <div>
+                        <h3 className="font-bold text-gray-800">
+                          {username} 的打卡记录
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          队伍绑定习惯的打卡记录
+                        </p>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
               <button
                 onClick={() => setShowCheckInModal(false)}

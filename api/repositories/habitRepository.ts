@@ -187,26 +187,31 @@ export const habitRepository = {
     const startDateStr = startDate.format('YYYY-MM-DD');
     const endDateStr = endDate.format('YYYY-MM-DD');
 
-    const rows = await runQuery<{ date: string; count: number }>(
-      `SELECT DATE(created_at) as date, COUNT(*) as count 
-       FROM check_ins 
+    const checkInRows = await runQuery<CheckInRow>(
+      `SELECT * FROM check_ins 
        WHERE habit_id = ? AND user_id = ? 
        AND DATE(created_at) BETWEEN ? AND ?
-       GROUP BY DATE(created_at)
-       ORDER BY date ASC`,
+       ORDER BY created_at DESC`,
       [habitId, userId, startDateStr, endDateStr]
     );
 
-    const countMap = new Map<string, number>();
-    rows.forEach(row => countMap.set(row.date, row.count));
+    const checkInsByDate = new Map<string, CheckIn[]>();
+    checkInRows.forEach(row => {
+      const date = dayjs(row.created_at).format('YYYY-MM-DD');
+      if (!checkInsByDate.has(date)) {
+        checkInsByDate.set(date, []);
+      }
+      checkInsByDate.get(date)!.push(mapCheckIn(row));
+    });
 
-    const dailyData: { date: string; count: number; targetMet: boolean }[] = [];
+    const dailyData: { date: string; count: number; targetMet: boolean; checkIns: CheckIn[] }[] = [];
     let achievedDays = 0;
     let totalCheckIns = 0;
 
     for (let i = 0; i < days; i++) {
       const date = startDate.add(i, 'day').format('YYYY-MM-DD');
-      const count = countMap.get(date) || 0;
+      const dayCheckIns = checkInsByDate.get(date) || [];
+      const count = dayCheckIns.length;
       const targetMet = count >= habit.targetCount;
       
       if (targetMet) achievedDays++;
@@ -215,7 +220,8 @@ export const habitRepository = {
       dailyData.push({
         date,
         count,
-        targetMet
+        targetMet,
+        checkIns: dayCheckIns
       });
     }
 
@@ -399,13 +405,37 @@ export async function getUserStatistics(userId: number) {
     heatmapData.push({ date, count: heatmapMap.get(date) || 0 });
   }
 
-  const habitRates: number[] = [];
+  let totalCompletedThisMonth = 0;
+  let totalTargetThisMonth = 0;
+  const startOfMonth = dayjs().startOf('month');
+  const today = dayjs();
+  const startOfMonthStr = startOfMonth.format('YYYY-MM-DD');
+  const todayStr = today.format('YYYY-MM-DD');
+  const daysPassed = today.diff(startOfMonth, 'day') + 1;
+
   for (const habit of habits) {
-    const rate = await calculateMonthlyRate(habit.id, userId);
-    habitRates.push(rate);
+    const countRow = await runQueryOne<{ count: number }>(
+      `SELECT COUNT(*) as count FROM check_ins 
+       WHERE habit_id = ? AND user_id = ? 
+       AND DATE(created_at) BETWEEN ? AND ?`,
+      [habit.id, userId, startOfMonthStr, todayStr]
+    );
+    const count = countRow?.count || 0;
+
+    let target = 0;
+    if (habit.frequency === 'weekly') {
+      const weeksPassed = Math.ceil(daysPassed / 7);
+      target = weeksPassed * habit.target_count;
+    } else {
+      target = daysPassed * habit.target_count;
+    }
+
+    totalCompletedThisMonth += count;
+    totalTargetThisMonth += target;
   }
-  const monthlyRate = habitRates.length > 0
-    ? Math.min(100, Math.round(habitRates.reduce((sum, rate) => sum + rate, 0) / habitRates.length))
+
+  const monthlyRate = totalTargetThisMonth > 0
+    ? Math.min(100, Math.round((totalCompletedThisMonth / totalTargetThisMonth) * 100))
     : 0;
 
   const badgesRow = await runQueryOne<{ count: number }>(

@@ -60,7 +60,7 @@ const CheckInPage: React.FC = () => {
       }, 1500);
     } catch (err: any) {
       console.error('打卡失败:', err);
-      const errorMessage = err.response?.data?.message || err.message || '打卡失败';
+      const errorMessage = err?.response?.data?.message || err?.response?.data?.error || err?.message || '打卡失败';
       setError(errorMessage);
     } finally {
       setIsSubmitting(false);
