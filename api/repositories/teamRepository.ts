@@ -44,11 +44,6 @@ export const teamRepository = {
     const team = await this.findById(teamId);
     if (!team) return null;
 
-    const isMember = userId ? await this.isMember(teamId, userId) : false;
-    if (!isMember && userId) {
-      return null;
-    }
-
     const members = await this.getMembers(teamId);
     const dailyProgress = await this.getDailyProgress(teamId);
     const todayCompleted = members.filter(m => m.todayCompleted).length;
@@ -299,11 +294,6 @@ export const teamRepository = {
     const team = await this.findById(teamId);
     if (!team) return null;
 
-    const isMember = userId ? await this.isMember(teamId, userId) : false;
-    if (!isMember && userId) {
-      return null;
-    }
-
     const habitRow = team.habitId
       ? await runQueryOne<{ icon: string; color: string; target_count: number }>(
           'SELECT icon, color, target_count FROM habits WHERE id = ?',
@@ -341,7 +331,8 @@ export const teamRepository = {
       totalCheckIns: totalCheckInsRow?.count || 0,
       membersCount: membersCountRow?.count || 0,
       targetCount: habitRow?.target_count || 1,
-      endDate: team.endDate
+      endDate: team.endDate,
+      members: membersExtended
     };
   },
 

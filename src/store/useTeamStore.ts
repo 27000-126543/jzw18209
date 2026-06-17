@@ -35,10 +35,10 @@ export const useTeamStore = create<TeamState>((set) => ({
   },
 
   fetchMemberCheckIns: async (teamId: number, userId: number) => {
-    set({ checkInsLoading: true });
+    set({ checkInsLoading: true, memberCheckIns: [], selectedMemberId: userId, showCheckInModal: true });
     try {
       const data = await teamsApi.getMemberCheckIns(teamId, userId);
-      set({ memberCheckIns: data, checkInsLoading: false, selectedMemberId: userId, showCheckInModal: true });
+      set({ memberCheckIns: data, checkInsLoading: false });
     } catch (error) {
       set({ checkInsLoading: false });
       console.error('Fetch member check-ins failed:', error);

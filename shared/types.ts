@@ -263,6 +263,7 @@ export interface TeamExtended extends Team {
   membersCount: number;
   targetCount: number;
   endDate: string;
+  members: TeamMemberExtended[];
 }
 
 export interface HabitTrendDailyData {

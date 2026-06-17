@@ -16,6 +16,7 @@ const TeamDetailPage: React.FC = () => {
   const [team, setTeam] = useState<TeamDetail | null>(null);
   const [progress, setProgress] = useState<TeamProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isJoined, setIsJoined] = useState(false);
   const [period, setPeriod] = useState<ContributionPeriod>('today');
 
@@ -33,31 +34,39 @@ const TeamDetailPage: React.FC = () => {
 
   const loadTeamData = useCallback(async (teamId: number) => {
     setLoading(true);
+    setError(null);
     try {
       const [teamRes, progressRes] = await Promise.all([
         teamsApi.getTeamById(teamId),
         teamsApi.getTeamProgress(teamId)
       ]);
 
-      const membersWithExtra = teamRes.members.map((m, idx) => ({
+      const normalizedTeam = {
+        ...teamRes,
+        members: teamRes.members || [],
+        description: teamRes.description || '',
+      };
+
+      const membersWithExtra = normalizedTeam.members.map((m, idx) => ({
         ...m,
         id: m.id || idx,
         userId: m.userId || idx,
         teamId,
         username: m.username || '',
         avatar: m.avatar || '',
-        joinedAt: m.joinedAt || teamRes.createdAt,
+        joinedAt: m.joinedAt || normalizedTeam.createdAt,
         todayCompleted: m.todayCompleted || false,
         isCurrentUser: user ? m.userId === user.id : false,
         streak: 0,
         totalCheckIns: 0
       }));
 
-      setTeam(teamRes);
+      setTeam(normalizedTeam);
       setProgress(progressRes);
       setIsJoined(membersWithExtra.some(m => m.isCurrentUser));
     } catch (err) {
       console.error('加载队伍信息失败:', err);
+      setError('加载队伍信息失败，请稍后重试');
     } finally {
       setLoading(false);
     }
@@ -124,11 +133,25 @@ const TeamDetailPage: React.FC = () => {
     return contributions.find(c => c.userId === selectedMemberId);
   };
 
-  if (loading || !team) {
+  if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-gray-400">
         <Loader2 className="w-8 h-8 animate-spin mb-3" />
         <p>加载中...</p>
+      </div>
+    );
+  }
+
+  if (error || !team) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+        <p className="text-red-500 mb-4">{error || '加载失败'}</p>
+        <button
+          onClick={() => id && loadTeamData(parseInt(id))}
+          className="px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+        >
+          重试
+        </button>
       </div>
     );
   }
@@ -367,7 +390,7 @@ const TeamDetailPage: React.FC = () => {
         )}
       </div>
 
-      {isJoined && progress.length > 0 && (
+      {progress.length > 0 && (
         <div className="bg-white rounded-2xl p-6 shadow-sm">
           <h2 className="text-lg font-bold text-gray-800 mb-4">近7天进度</h2>
           <div className="grid grid-cols-7 gap-2">
