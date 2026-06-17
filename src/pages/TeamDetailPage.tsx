@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Users, Target, Calendar, Award, Plus, LogOut, Crown } from 'lucide-react';
-import { teamsApi } from '../api/teams';
-import { Team, TeamMember, TeamProgress } from '../../shared/types';
+import { teamsApi } from '../api';
+import { TeamDetail, TeamMemberExtended, TeamProgress } from '../../shared/types';
 import { Loader2 } from 'lucide-react';
 import { formatDate } from '../utils/date';
 import { cn } from '../lib/utils';
+import { useAuthStore } from '../store/useAuthStore';
 
 const TeamDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [team, setTeam] = useState<Team | null>(null);
-  const [members, setMembers] = useState<TeamMember[]>([]);
+  const { user } = useAuthStore();
+  const [team, setTeam] = useState<TeamDetail | null>(null);
+  const [members, setMembers] = useState<TeamMemberExtended[]>([]);
   const [progress, setProgress] = useState<TeamProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [isJoined, setIsJoined] = useState(false);
@@ -31,10 +33,24 @@ const TeamDetailPage: React.FC = () => {
         teamsApi.getTeamProgress(teamId)
       ]);
       
-      setTeam(teamRes.data);
-      setMembers(membersRes.data);
-      setProgress(progressRes.data);
-      setIsJoined(membersRes.data.some(m => m.isCurrentUser));
+      const membersWithExtra: TeamMemberExtended[] = membersRes.map((m, idx) => ({
+        ...m,
+        id: m.id || (m as any).userId || idx,
+        userId: m.userId || (m as any).id || idx,
+        teamId,
+        username: m.username || '',
+        avatar: m.avatar || '',
+        joinedAt: m.joinedAt || teamRes.createdAt,
+        todayCompleted: m.todayCompleted || false,
+        isCurrentUser: user ? (m.userId === user.id || (m as any).id === user.id) : false,
+        streak: (m as any).streak || (m as any).currentStreak || 0,
+        totalCheckIns: (m as any).totalCheckIns || 0
+      }));
+      
+      setTeam(teamRes);
+      setMembers(membersWithExtra);
+      setProgress(progressRes);
+      setIsJoined(membersWithExtra.some(m => m.isCurrentUser));
     } catch (err) {
       console.error('加载队伍信息失败:', err);
     } finally {
@@ -72,10 +88,17 @@ const TeamDetailPage: React.FC = () => {
       </div>
     );
   }
-
-  const todayProgress = progress[0] || null;
-  const completedCount = members.filter(m => m.todayCompleted).length;
+  
+  const completedCount = members.filter(m => {
+    if (team.habitId) {
+      return m.todayCompleted;
+    }
+    return m.todayCompleted;
+  }).length;
+  
   const completionRate = members.length > 0 ? Math.round((completedCount / members.length) * 100) : 0;
+
+  const teamExtended = team as any;
 
   return (
     <div className="space-y-6">
@@ -89,7 +112,7 @@ const TeamDetailPage: React.FC = () => {
 
       <div
         className="rounded-3xl p-8 text-white relative overflow-hidden"
-        style={{ backgroundColor: team.color || '#10b981' }}
+        style={{ backgroundColor: teamExtended.color || '#10b981' }}
       >
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
@@ -98,7 +121,7 @@ const TeamDetailPage: React.FC = () => {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-4xl">
-                {team.icon || '🎯'}
+                {teamExtended.icon || '🎯'}
               </div>
               <div>
                 <h1 className="text-3xl font-bold">{team.name}</h1>
@@ -112,7 +135,7 @@ const TeamDetailPage: React.FC = () => {
                   </span>
                   <span className="flex items-center gap-1">
                     <Target className="w-4 h-4" />
-                    {team.targetCount} 天挑战
+                    {teamExtended.targetCount || 30} 天挑战
                   </span>
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
@@ -173,7 +196,7 @@ const TeamDetailPage: React.FC = () => {
             <div>
               <p className="text-sm text-gray-500 font-medium">队伍连续</p>
               <p className="text-2xl font-bold text-orange-500 mt-2">
-                {team.currentStreak || 0} 天
+                {teamExtended.currentStreak || 0} 天
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center">
@@ -187,7 +210,7 @@ const TeamDetailPage: React.FC = () => {
             <div>
               <p className="text-sm text-gray-500 font-medium">总完成次数</p>
               <p className="text-2xl font-bold text-purple-500 mt-2">
-                {team.totalCheckIns || 0} 次
+                {teamExtended.totalCheckIns || 0} 次
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center">
@@ -205,7 +228,7 @@ const TeamDetailPage: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {members.map((member, idx) => (
+            {members.sort((a, b) => (b.streak || 0) - (a.streak || 0)).map((member, idx) => (
               <div
                 key={member.id}
                 className={cn(
@@ -238,7 +261,7 @@ const TeamDetailPage: React.FC = () => {
                       )}
                     </p>
                     <p className="text-xs text-gray-500">
-                      连续 {member.streak} 天 · {member.totalCheckIns} 次打卡
+                      连续 {member.streak || 0} 天 · {member.totalCheckIns || 0} 次打卡
                     </p>
                   </div>
                 </div>
@@ -256,7 +279,7 @@ const TeamDetailPage: React.FC = () => {
         )}
       </div>
 
-      {isJoined && (
+      {isJoined && progress.length > 0 && (
         <div className="bg-white rounded-2xl p-6 shadow-sm">
           <h2 className="text-lg font-bold text-gray-800 mb-4">近7天进度</h2>
           <div className="grid grid-cols-7 gap-2">

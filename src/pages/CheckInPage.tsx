@@ -50,8 +50,7 @@ const CheckInPage: React.FC = () => {
       await checkIn(parseInt(id), {
         content: content.trim() || undefined,
         mood: mood || undefined,
-        photos: photos.length > 0 ? photos : undefined,
-        isPublic: habit?.isPublic ?? true
+        photos: photos.length > 0 ? photos : undefined
       });
       setShowSuccess(true);
       setTimeout(() => {

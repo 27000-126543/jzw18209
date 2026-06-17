@@ -1,13 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authApi } from '../api';
-import { AuthResponse, User } from '../../shared/types';
+import { AuthResponse, User, LoginRequest, RegisterRequest } from '../../shared/types';
 
 interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (data: AuthResponse) => void;
+  login: (emailOrUsername: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   fetchUser: () => Promise<void>;
   updateUser: (user: Partial<User>) => void;
@@ -20,16 +21,42 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       
-      login: (data) => {
-        localStorage.setItem('token', data.token);
+      login: async (emailOrUsername: string, password: string) => {
+        const isEmail = emailOrUsername.includes('@');
+        const data: LoginRequest = isEmail
+          ? { email: emailOrUsername, password }
+          : { email: emailOrUsername, password };
+        
+        const response: AuthResponse = await authApi.login(data);
+        
+        localStorage.setItem('token', response.token);
         set({ 
-          token: data.token, 
+          token: response.token, 
           isAuthenticated: true,
           user: {
-            id: data.id,
-            username: data.username,
-            avatar: data.avatar,
+            id: response.id,
+            username: response.username,
+            avatar: response.avatar,
             email: '',
+            bio: '',
+            createdAt: ''
+          }
+        });
+      },
+
+      register: async (username: string, email: string, password: string) => {
+        const data: RegisterRequest = { username, email, password };
+        const response: AuthResponse = await authApi.register(data);
+        
+        localStorage.setItem('token', response.token);
+        set({ 
+          token: response.token, 
+          isAuthenticated: true,
+          user: {
+            id: response.id,
+            username: response.username,
+            avatar: response.avatar,
+            email: email,
             bio: '',
             createdAt: ''
           }

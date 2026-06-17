@@ -10,7 +10,7 @@ import { cn } from '../lib/utils';
 const HabitDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { habits, statistics, recentCheckIns, fetchHabitDetail, deleteHabit, fetchCheckIns } = useHabitStore();
+  const { habits, currentHabit, recentCheckIns, fetchHabitDetail, deleteHabit, fetchCheckIns } = useHabitStore();
 
   useEffect(() => {
     if (id) {
@@ -19,8 +19,15 @@ const HabitDetailPage: React.FC = () => {
     }
   }, [id, fetchHabitDetail, fetchCheckIns]);
 
-  const habit = habits.find(h => h.id === parseInt(id || ''));
-  const habitStats = statistics.streaks?.[parseInt(id || '')];
+  const habit = habits.find(h => h.id === parseInt(id || '')) || currentHabit;
+  const habitStats = currentHabit ? {
+    currentStreak: currentHabit.currentStreak,
+    longestStreak: currentHabit.longestStreak,
+    monthlyRate: currentHabit.monthlyCompletionRate,
+    totalCount: currentHabit.totalCheckIns,
+    heatmapData: currentHabit.heatmapData,
+  } : null;
+  const displayCheckIns = currentHabit?.checkInHistory || recentCheckIns;
 
   if (!habit) {
     return (
@@ -146,13 +153,13 @@ const HabitDetailPage: React.FC = () => {
 
       <div className="bg-white rounded-2xl p-6 shadow-sm">
         <h2 className="text-lg font-bold text-gray-800 mb-4">最近打卡记录</h2>
-        {recentCheckIns.length === 0 ? (
+        {displayCheckIns.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             还没有打卡记录，来完成第一次打卡吧！
           </div>
         ) : (
           <div className="space-y-4">
-            {recentCheckIns.slice(0, 10).map(checkIn => (
+            {displayCheckIns.slice(0, 10).map(checkIn => (
               <div
                 key={checkIn.id}
                 className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"

@@ -1,7 +1,7 @@
 import { userRepository } from '../repositories/userRepository';
 import { friendshipRepository } from '../repositories/friendshipRepository';
 import { notificationRepository } from '../repositories/notificationRepository';
-import { UserProfile } from '../../shared/types';
+import { UserProfile, ExploreUser, UserStatistics, CheckInFeed } from '../../shared/types';
 
 export const userService = {
   async getUserProfile(userId: number, currentUserId: number | null): Promise<UserProfile | null> {
@@ -61,5 +61,17 @@ export const userService = {
     
     const profile = await userRepository.findUserProfile(userId, userId);
     return profile?.badges || [];
+  },
+
+  async exploreUsers(currentUserId: number | null, limit: number = 20): Promise<ExploreUser[]> {
+    return userRepository.getExploreUsers(currentUserId, limit);
+  },
+
+  async getUserCheckIns(userId: number, currentUserId: number | null, limit: number = 30): Promise<CheckInFeed[]> {
+    return userRepository.getUserCheckIns(userId, currentUserId, limit);
+  },
+
+  async getUserStats(userId: number, currentUserId: number | null): Promise<UserStatistics | null> {
+    return userRepository.getUserStats(userId, currentUserId);
   }
 };

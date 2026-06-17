@@ -30,11 +30,13 @@ export const getMonthDays = (year: number, month: number): number => {
 };
 
 export const isToday = (date: string | Date): boolean => {
-  return dayjs(date).isToday();
+  const d = dayjs(date);
+  const t = dayjs();
+  return d.format('YYYY-MM-DD') === t.format('YYYY-MM-DD');
 };
 
-export const generateHeatmapDates = (months: number = 12): Array<{ date: string; count: number }[]> => {
-  const data: Array<{ date: string; count: number }[]> = [];
+export const generateHeatmapDates = (months: number = 12): { date: string; count: number }[] => {
+  const data: { date: string; count: number }[] = [];
   const today = dayjs();
   
   for (let i = months * 30; i >= 0; i--) {

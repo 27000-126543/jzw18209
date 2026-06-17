@@ -4,3 +4,4 @@ export * from './checkins';
 export * from './users';
 export * from './teams';
 export * from './notifications';
+export * from './badges';

@@ -1,5 +1,5 @@
 import client from './client';
-import { CreateHabitRequest, HabitListResponse, HabitDetail } from '../../shared/types';
+import { CreateHabitRequest, HabitListResponse, HabitDetail, HabitStatistics, TodayProgress, CheckIn } from '../../shared/types';
 
 export const habitsApi = {
   create: (data: CreateHabitRequest) =>
@@ -17,6 +17,12 @@ export const habitsApi = {
   delete: (id: number) =>
     client.delete<{ success: boolean }>(`/habits/${id}`).then(res => res.data),
 
+  statistics: () =>
+    client.get<HabitStatistics>('/habits/statistics').then(res => res.data),
+
   progress: () =>
-    client.get<{ habitId: number; completed: boolean }[]>('/habits/progress').then(res => res.data),
+    client.get<TodayProgress[]>('/habits/progress').then(res => res.data),
+
+  getCheckIns: (habitId: number) =>
+    client.get<CheckIn[]>(`/habits/${habitId}/checkins`).then(res => res.data),
 };

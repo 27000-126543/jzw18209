@@ -53,10 +53,10 @@ export const useNotificationStore = create<NotificationState>((set) => ({
 
   markAllAsRead: async () => {
     try {
-      const count = await notificationsApi.markAllAsRead();
+      const result = await notificationsApi.markAllRead();
       set((state) => ({
         notifications: state.notifications.map(n => ({ ...n, isRead: true })),
-        unreadCount: Math.max(0, state.unreadCount - count)
+        unreadCount: Math.max(0, state.unreadCount - (result?.count || 0))
       }));
     } catch (error) {
       console.error('Mark all as read failed:', error);

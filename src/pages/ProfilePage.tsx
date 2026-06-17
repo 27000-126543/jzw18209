@@ -4,7 +4,7 @@ import { Settings, LogOut, Edit, Target, Users, Bell, Moon, ChevronRight } from 
 import { useAuthStore } from '../store/useAuthStore';
 import { useHabitStore } from '../store/useHabitStore';
 import { useNotificationStore } from '../store/useNotificationStore';
-import { badgesApi } from '../api/badges';
+import { badgesApi } from '../api';
 import { Badge } from '../../shared/types';
 import StatCard from '../components/StatCard';
 import HeatmapCalendar from '../components/HeatmapCalendar';
@@ -27,8 +27,8 @@ const ProfilePage: React.FC = () => {
 
   const loadBadges = async () => {
     try {
-      const res = await badgesApi.getUserBadges(0);
-      setBadges(res.data);
+      const data = await badgesApi.getUserBadges();
+      setBadges(data);
     } catch (err) {
       console.error('加载徽章失败:', err);
     }

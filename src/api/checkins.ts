@@ -1,12 +1,24 @@
 import client from './client';
-import { CheckInRequest, FeedResponse, ExploreResponse, Comment } from '../../shared/types';
+import { CheckInRequest, FeedResponse, ExploreResponse, Comment, CheckInFeed, ExploreUser, UserStatistics } from '../../shared/types';
 
 export const checkInsApi = {
   create: (data: CheckInRequest) =>
-    client.post<{ checkInId: number; newBadge: { name: string; icon: string } | null }>('/checkins', data).then(res => res.data),
+    client.post<{ checkInId: number; newBadge: { id: number; name: string; icon: string } | null; currentCount: number; targetCount: number; completed: boolean }>('/checkins', data).then(res => res.data),
 
   feed: (cursor: number = 0, limit: number = 20) =>
     client.get<FeedResponse>('/checkins/feed', { params: { cursor, limit } }).then(res => res.data),
+
+  publicFeed: (hot?: boolean) =>
+    client.get<CheckInFeed[]>('/checkins/public', { params: hot ? { hot } : undefined }).then(res => res.data),
+
+  exploreUsers: () =>
+    client.get<ExploreUser[]>('/checkins/explore/users').then(res => res.data),
+
+  userCheckIns: (userId: number) =>
+    client.get<CheckInFeed[]>(`/checkins/user/${userId}`).then(res => res.data),
+
+  userStats: (userId: number) =>
+    client.get<UserStatistics>(`/checkins/user/${userId}/stats`).then(res => res.data),
 
   explore: () =>
     client.get<ExploreResponse>('/checkins/explore').then(res => res.data),

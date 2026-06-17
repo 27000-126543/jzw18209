@@ -1,5 +1,5 @@
 import client from './client';
-import { User, UserProfile, Badge } from '../../shared/types';
+import { User, UserProfile, Badge, UserStatistics } from '../../shared/types';
 
 export const usersApi = {
   profile: (id: number) =>
@@ -12,10 +12,10 @@ export const usersApi = {
     client.get<User[]>('/users/search', { params: { q: query, limit } }).then(res => res.data),
 
   follow: (userId: number) =>
-    client.post<{ success: boolean }>(`/users/${userId}/follow`).then(res => res.data),
+    client.post<{ success: boolean; isFollowing: boolean }>(`/users/${userId}/follow`).then(res => res.data),
 
   unfollow: (userId: number) =>
-    client.delete<{ success: boolean }>(`/users/${userId}/unfollow`).then(res => res.data),
+    client.delete<{ success: boolean; isFollowing: boolean }>(`/users/${userId}/unfollow`).then(res => res.data),
 
   followers: (id: number) =>
     client.get<User[]>(`/users/${id}/followers`).then(res => res.data),
@@ -28,4 +28,7 @@ export const usersApi = {
 
   badges: (id: number) =>
     client.get<Badge[]>(`/users/${id}/badges`).then(res => res.data),
+
+  stats: (id: number) =>
+    client.get<UserStatistics>(`/users/${id}/stats`).then(res => res.data),
 };

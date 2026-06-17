@@ -159,11 +159,11 @@ export const initDatabase = (): Promise<void> => {
   });
 };
 
-export const runQuery = <T = unknown>(sql: string, params: unknown[] = []): Promise<T> => {
+export const runQuery = <T = unknown>(sql: string, params: unknown[] = []): Promise<T[]> => {
   return new Promise((resolve, reject) => {
     db.all(sql, params, (err, rows) => {
       if (err) reject(err);
-      else resolve(rows as T);
+      else resolve((rows as T[]) || []);
     });
   });
 };

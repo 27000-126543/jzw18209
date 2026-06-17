@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { userService } from '../services/userService';
+import { ExploreUser, UserStatistics, CheckInFeed } from '../../shared/types';
 
 export const userController = {
   async profile(req: AuthRequest, res: Response) {
@@ -96,11 +97,47 @@ export const userController = {
 
   async badges(req: AuthRequest, res: Response) {
     try {
-      const userId = parseInt(req.params.id);
+      const idParam = parseInt(req.params.id);
+      const userId = idParam === 0 ? (req.userId || 0) : idParam;
+      if (!userId) return res.status(401).json({ error: '未授权' });
       const result = await userService.getUserBadges(userId);
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: '获取徽章失败' });
+    }
+  },
+
+  async explore(req: AuthRequest, res: Response) {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const result = await userService.exploreUsers(req.userId || null, limit) as ExploreUser[];
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: '获取发现用户失败' });
+    }
+  },
+
+  async checkins(req: AuthRequest, res: Response) {
+    try {
+      const userId = parseInt(req.params.id);
+      const limit = parseInt(req.query.limit as string) || 30;
+      const result = await userService.getUserCheckIns(userId, req.userId || null, limit) as CheckInFeed[];
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: '获取用户打卡记录失败' });
+    }
+  },
+
+  async stats(req: AuthRequest, res: Response) {
+    try {
+      const userId = parseInt(req.params.id);
+      const result = await userService.getUserStats(userId, req.userId || null) as UserStatistics | null;
+      if (!result) {
+        return res.status(404).json({ error: '用户不存在' });
+      }
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: '获取用户统计失败' });
     }
   }
 };

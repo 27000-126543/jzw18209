@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { checkInService } from '../services/checkInService';
-import { CheckInRequest, CommentRequest } from '../../shared/types';
+import { CheckInRequest, CommentRequest, Badge } from '../../shared/types';
 
 export const checkInController = {
   async create(req: AuthRequest, res: Response) {

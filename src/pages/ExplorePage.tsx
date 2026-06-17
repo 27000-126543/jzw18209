@@ -4,6 +4,7 @@ import { useFeedStore } from '../store/useFeedStore';
 import CheckInCard from '../components/CheckInCard';
 import UserCard from '../components/UserCard';
 import { Loader2 } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 type TabType = 'recommend' | 'hot' | 'users';
 
@@ -76,7 +77,7 @@ const ExplorePage: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {exploreUsers.map(user => (
-                <UserCard key={user.id} user={user} />
+                <UserCard key={user.id} user={user as any} />
               ))}
             </div>
           )}

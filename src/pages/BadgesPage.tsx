@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Award, Lock } from 'lucide-react';
-import { badgesApi } from '../api/badges';
+import { badgesApi } from '../api';
 import { Badge } from '../../shared/types';
 import BadgeWall from '../components/BadgeWall';
 import { Loader2 } from 'lucide-react';
@@ -17,8 +17,8 @@ const BadgesPage: React.FC = () => {
 
   const loadBadges = async () => {
     try {
-      const res = await badgesApi.getUserBadges(0);
-      setBadges(res.data);
+      const data = await badgesApi.getUserBadges();
+      setBadges(data);
     } catch (err) {
       console.error('加载徽章失败:', err);
     } finally {

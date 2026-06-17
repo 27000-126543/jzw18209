@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { teamService } from '../services/teamService';
-import { CreateTeamRequest } from '../../shared/types';
+import { CreateTeamRequest, TeamProgress, TeamMemberExtended, TeamExtended } from '../../shared/types';
 
 export const teamController = {
   async create(req: AuthRequest, res: Response) {
@@ -17,6 +17,12 @@ export const teamController = {
 
   async list(req: AuthRequest, res: Response) {
     try {
+      const includeAll = req.query.includeAll === 'true';
+      if (includeAll) {
+        const limit = parseInt(req.query.limit as string) || 50;
+        const result = await teamService.getAllPublicTeams(limit);
+        return res.json(result);
+      }
       if (!req.userId) return res.status(401).json({ error: '未授权' });
       const result = await teamService.getUserTeams(req.userId);
       res.json(result);
@@ -28,7 +34,7 @@ export const teamController = {
   async detail(req: AuthRequest, res: Response) {
     try {
       const teamId = parseInt(req.params.id);
-      const result = await teamService.getTeamDetail(teamId, req.userId || null);
+      const result = await teamService.getTeamDetailExtended(teamId, req.userId || null) as TeamExtended | null;
       if (!result) {
         return res.status(404).json({ error: '队伍不存在或无权限' });
       }
@@ -88,6 +94,26 @@ export const teamController = {
       res.json({ success: true, teamId });
     } catch (error) {
       res.status(400).json({ error: '加入失败' });
+    }
+  },
+
+  async progress(req: AuthRequest, res: Response) {
+    try {
+      const teamId = parseInt(req.params.id);
+      const result = await teamService.getTeamProgress(teamId) as TeamProgress[];
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: '获取队伍进度失败' });
+    }
+  },
+
+  async members(req: AuthRequest, res: Response) {
+    try {
+      const teamId = parseInt(req.params.id);
+      const result = await teamService.getTeamMembers(teamId, req.userId || null) as TeamMemberExtended[];
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: '获取队伍成员失败' });
     }
   }
 };

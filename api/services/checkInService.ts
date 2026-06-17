@@ -3,20 +3,44 @@ import { habitRepository } from '../repositories/habitRepository';
 import { badgeRepository } from '../repositories/badgeRepository';
 import { notificationRepository } from '../repositories/notificationRepository';
 import { CheckInRequest, Badge } from '../../shared/types';
+import dayjs from 'dayjs';
 
 export const checkInService = {
-  async createCheckIn(userId: number, data: CheckInRequest): Promise<{ checkInId: number; newBadge: Badge | null }> {
+  async createCheckIn(userId: number, data: CheckInRequest): Promise<{ checkInId: number; newBadge: Badge | null; currentCount: number; targetCount: number; completed: boolean }> {
     const habit = await habitRepository.findById(data.habitId);
     if (!habit || habit.userId !== userId) {
       throw new Error('习惯不存在或无权限');
     }
 
-    const todayCompleted = await checkInRepository.checkTodayCompleted(data.habitId, userId);
-    if (todayCompleted) {
-      throw new Error('今日已完成该习惯打卡');
+    const now = dayjs();
+    const currentTime = now.format('HH:mm');
+    const deadlineTime = habit.deadlineTime || '23:59';
+    
+    if (currentTime > deadlineTime) {
+      const habitName = habit.name;
+      throw new Error(`已超过"${habitName}"的截止时间 ${deadlineTime}，请明天继续加油！`);
+    }
+
+    const progress = await habitRepository.getTodayProgress(userId);
+    const habitProgress = progress.find(p => p.habitId === habit.id);
+    const currentCount = habitProgress?.currentCount || 0;
+    const targetCount = habit.targetCount;
+    const wasCompleted = habitProgress?.completed || false;
+
+    if (wasCompleted) {
+      return {
+        checkInId: 0,
+        newBadge: null,
+        currentCount,
+        targetCount,
+        completed: true
+      };
     }
 
     const checkInId = await checkInRepository.create(userId, data);
+
+    const newCount = currentCount + 1;
+    const completed = newCount >= targetCount;
 
     const habitDetail = await habitRepository.getHabitDetail(data.habitId, userId);
     let newBadge: Badge | null = null;
@@ -38,7 +62,13 @@ export const checkInService = {
       }
     }
 
-    return { checkInId, newBadge };
+    return { 
+      checkInId, 
+      newBadge, 
+      currentCount: newCount,
+      targetCount,
+      completed
+    };
   },
 
   async getFeed(userId: number, cursor: number = 0, limit: number = 20) {

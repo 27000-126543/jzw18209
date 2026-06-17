@@ -1,7 +1,8 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import { habitService } from '../services/habitService';
-import { CreateHabitRequest } from '../../shared/types';
+import { CreateHabitRequest, HabitStatistics, UserStatistics } from '../../shared/types';
+import { getUserStatistics } from '../repositories/habitRepository';
 
 export const habitController = {
   async create(req: AuthRequest, res: Response) {
@@ -75,6 +76,40 @@ export const habitController = {
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: '获取进度失败' });
+    }
+  },
+
+  async statistics(req: AuthRequest, res: Response) {
+    try {
+      if (!req.userId) return res.status(401).json({ error: '未授权' });
+      const result = await getUserStatistics(req.userId) as HabitStatistics;
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: '获取统计数据失败' });
+    }
+  },
+
+  async checkins(req: AuthRequest, res: Response) {
+    try {
+      if (!req.userId) return res.status(401).json({ error: '未授权' });
+      const habitId = parseInt(req.params.id);
+      const detail = await habitService.getHabitDetail(habitId, req.userId);
+      if (!detail) {
+        return res.status(404).json({ error: '习惯不存在' });
+      }
+      res.json(detail.checkInHistory);
+    } catch (error) {
+      res.status(500).json({ error: '获取打卡记录失败' });
+    }
+  },
+
+  async userStats(req: AuthRequest, res: Response) {
+    try {
+      const userId = parseInt(req.params.id);
+      const stats = await getUserStatistics(userId);
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ error: '获取用户统计失败' });
     }
   }
 };

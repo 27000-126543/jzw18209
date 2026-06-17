@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Users, Trophy, Target, Flame, ChevronRight } from 'lucide-react';
-import { teamsApi } from '../api/teams';
+import { teamsApi } from '../api';
 import { Team } from '../../shared/types';
 import { Loader2 } from 'lucide-react';
 import { formatDate } from '../utils/date';
+import { cn } from '../lib/utils';
 
 const TeamsPage: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -18,10 +19,16 @@ const TeamsPage: React.FC = () => {
   const loadTeams = async () => {
     setLoading(true);
     try {
-      const res = await teamsApi.getTeams(tab === 'all');
-      setTeams(res.data);
+      if (tab === 'all') {
+        const data = await teamsApi.recommended(20);
+        setTeams(data);
+      } else {
+        const data = await teamsApi.getTeams(false);
+        setTeams(data);
+      }
     } catch (err) {
       console.error('加载队伍列表失败:', err);
+      setTeams([]);
     } finally {
       setLoading(false);
     }
@@ -98,56 +105,59 @@ const TeamsPage: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {teams.map(team => (
-            <Link
-              key={team.id}
-              to={`/teams/${team.id}`}
-              className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl text-white"
-                    style={{ backgroundColor: team.color || '#10b981' }}
-                  >
-                    {team.icon || '🎯'}
+          {teams.map(team => {
+            const t = team as any;
+            return (
+              <Link
+                key={team.id}
+                to={`/teams/${team.id}`}
+                className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl text-white"
+                      style={{ backgroundColor: t.color || '#10b981' }}
+                    >
+                      {t.icon || '🎯'}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-800 group-hover:text-emerald-600 transition-colors">
+                        {team.name}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        创建于 {formatDate(team.createdAt)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-gray-800 group-hover:text-emerald-600 transition-colors">
-                      {team.name}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      创建于 {formatDate(team.createdAt)}
-                    </p>
+                  <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-emerald-500 transition-colors" />
+                </div>
+
+                {team.description && (
+                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                    {team.description}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <Users className="w-4 h-4" />
+                      {t.membersCount || t.totalMembers || 0} 人
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Target className="w-4 h-4" />
+                      {t.targetCount || 30} 天挑战
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 text-sm font-medium text-emerald-600">
+                    <Flame className="w-4 h-4" />
+                    {t.currentStreak || 0} 天
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-emerald-500 transition-colors" />
-              </div>
-
-              {team.description && (
-                <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                  {team.description}
-                </p>
-              )}
-
-              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                <div className="flex items-center gap-4 text-sm text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <Users className="w-4 h-4" />
-                    {team.membersCount} 人
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Target className="w-4 h-4" />
-                    {team.targetCount} 天挑战
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 text-sm font-medium text-emerald-600">
-                  <Flame className="w-4 h-4" />
-                  {team.currentStreak || 0} 天
-                </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

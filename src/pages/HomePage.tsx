@@ -22,13 +22,30 @@ const HomePage: React.FC = () => {
     fetchStatistics();
   }, [fetchFeed, fetchHabits, fetchStatistics]);
 
-  const completedCount = todayProgress.filter(p => p.completed).length;
+  const completedCount = todayProgress.filter(p => {
+    if (p.targetCount && p.targetCount > 1) {
+      return (p.currentCount || 0) >= p.targetCount;
+    }
+    return p.completed;
+  }).length;
+  
   const totalCount = habits.length;
-  const todayProgressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  
+  let totalCurrentCount = 0;
+  let totalTargetCount = 0;
+  todayProgress.forEach(p => {
+    totalCurrentCount += p.currentCount || (p.completed ? 1 : 0);
+    totalTargetCount += p.targetCount || 1;
+  });
+  const todayProgressPercent = totalTargetCount > 0 ? Math.round((totalCurrentCount / totalTargetCount) * 100) : 0;
 
   const pendingHabits = habits.filter(h => {
     const progress = todayProgress.find(p => p.habitId === h.id);
-    return !progress?.completed;
+    if (!progress) return true;
+    if (progress.targetCount && progress.targetCount > 1) {
+      return (progress.currentCount || 0) < progress.targetCount;
+    }
+    return !progress.completed;
   }).slice(0, 3);
 
   return (

@@ -120,15 +120,7 @@ const NotificationsPage: React.FC = () => {
             >
               <div className="relative">
                 <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center">
-                  {notification.relatedUserAvatar ? (
-                    <img
-                      src={notification.relatedUserAvatar}
-                      alt=""
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    getIcon(notification.type)
-                  )}
+                  {getIcon(notification.type)}
                 </div>
                 {!notification.isRead && (
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
@@ -136,9 +128,7 @@ const NotificationsPage: React.FC = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-gray-800">
-                  <span className="font-medium">{notification.title}</span>
-                  {' '}
-                  <span className="text-gray-600">{notification.content}</span>
+                  <span className="font-medium">{notification.content}</span>
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   {formatRelativeTime(notification.createdAt)}

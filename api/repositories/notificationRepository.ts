@@ -24,19 +24,32 @@ export const notificationRepository = {
     );
   },
 
-  async getByUserId(userId: number, limit: number = 50): Promise<Notification[]> {
-    const rows = await runQuery<NotificationRow>(
-      'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
-      [userId, limit]
-    );
+  async getByUserId(userId: number, limit: number = 50, type?: Notification['type']): Promise<Notification[]> {
+    let sql = 'SELECT * FROM notifications WHERE user_id = ?';
+    const params: unknown[] = [userId];
+
+    if (type) {
+      sql += ' AND type = ?';
+      params.push(type);
+    }
+
+    sql += ' ORDER BY created_at DESC LIMIT ?';
+    params.push(limit);
+
+    const rows = await runQuery<NotificationRow>(sql, params);
     return rows.map(mapNotification);
   },
 
-  async getUnreadCount(userId: number): Promise<number> {
-    const row = await runQueryOne<{ count: number }>(
-      'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0',
-      [userId]
-    );
+  async getUnreadCount(userId: number, type?: Notification['type']): Promise<number> {
+    let sql = 'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0';
+    const params: unknown[] = [userId];
+
+    if (type) {
+      sql += ' AND type = ?';
+      params.push(type);
+    }
+
+    const row = await runQueryOne<{ count: number }>(sql, params);
     return row?.count || 0;
   },
 
@@ -48,11 +61,16 @@ export const notificationRepository = {
     return changes > 0;
   },
 
-  async markAllAsRead(userId: number): Promise<number> {
-    return runUpdate(
-      'UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0',
-      [userId]
-    );
+  async markAllAsRead(userId: number, type?: Notification['type']): Promise<number> {
+    let sql = 'UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0';
+    const params: unknown[] = [userId];
+
+    if (type) {
+      sql += ' AND type = ?';
+      params.push(type);
+    }
+
+    return runUpdate(sql, params);
   },
 
   async delete(notificationId: number, userId: number): Promise<boolean> {

@@ -2,26 +2,26 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, UserPlus, UserCheck, Users, Target, Flame, Calendar, Award } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
-import { useFeedStore } from '../store/useFeedStore';
-import { checkinsApi } from '../api/checkins';
-import { badgesApi } from '../api/badges';
-import { CheckInFeed, Badge } from '../../shared/types';
+import { usersApi, badgesApi, checkInsApi } from '../api';
+import { CheckInFeed, Badge, UserProfile, UserStatistics } from '../../shared/types';
 import CheckInCard from '../components/CheckInCard';
 import HeatmapCalendar from '../components/HeatmapCalendar';
 import StatCard from '../components/StatCard';
 import BadgeWall from '../components/BadgeWall';
 import { Loader2 } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 const UserProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user: currentUser, follow, unfollow } = useAuthStore();
-  const { userCheckIns, fetchUserCheckIns, loading } = useFeedStore();
+  const { user: currentUser } = useAuthStore();
   
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const [userStats, setUserStats] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userStats, setUserStats] = useState<UserStatistics | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
+  const [userCheckIns, setUserCheckIns] = useState<CheckInFeed[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'checkins' | 'badges'>('checkins');
 
   useEffect(() => {
@@ -31,27 +31,46 @@ const UserProfilePage: React.FC = () => {
   }, [id]);
 
   const loadUserProfile = async (userId: number) => {
+    setLoading(true);
     try {
-      const [profileRes, checkInsRes, badgesRes] = await Promise.all([
-        checkinsApi.getUserStats(userId),
-        fetchUserCheckIns(userId),
+      const [profile, userBadges] = await Promise.all([
+        usersApi.profile(userId),
         badgesApi.getUserBadges(userId)
       ]);
       
-      setUserProfile(profileRes.data.user);
-      setUserStats(profileRes.data);
-      setIsFollowing(profileRes.data.user.isFollowing);
-      setBadges(badgesRes.data);
+      setUserProfile(profile);
+      setIsFollowing((profile as any).isFollowing || false);
+      setBadges(userBadges);
+      
+      setUserStats({
+        user: profile,
+        currentStreak: (profile as any).currentStreak || 0,
+        longestStreak: (profile as any).longestStreak || 0,
+        totalCheckIns: (profile as any).totalCheckIns || 0,
+        followersCount: profile.followersCount || 0,
+        followingCount: profile.followingCount || 0,
+        heatmapData: (profile as any).heatmapData || []
+      });
+      
+      setUserCheckIns((profile as any).recentCheckIns || []);
     } catch (err) {
       console.error('加载用户信息失败:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleFollow = async () => {
     if (!id) return;
     try {
-      await follow(parseInt(id));
+      await usersApi.follow(parseInt(id));
       setIsFollowing(true);
+      if (userProfile) {
+        setUserProfile({
+          ...userProfile,
+          followersCount: (userProfile.followersCount || 0) + 1
+        });
+      }
     } catch (err) {
       console.error('关注失败:', err);
     }
@@ -60,18 +79,38 @@ const UserProfilePage: React.FC = () => {
   const handleUnfollow = async () => {
     if (!id) return;
     try {
-      await unfollow(parseInt(id));
+      await usersApi.unfollow(parseInt(id));
       setIsFollowing(false);
+      if (userProfile) {
+        setUserProfile({
+          ...userProfile,
+          followersCount: Math.max(0, (userProfile.followersCount || 1) - 1)
+        });
+      }
     } catch (err) {
       console.error('取消关注失败:', err);
     }
   };
 
-  if (!userProfile) {
+  if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-gray-400">
         <Loader2 className="w-8 h-8 animate-spin mb-3" />
         <p>加载中...</p>
+      </div>
+    );
+  }
+
+  if (!userProfile) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500">用户不存在</p>
+        <button
+          onClick={() => navigate(-1)}
+          className="mt-4 text-emerald-600 hover:underline"
+        >
+          返回
+        </button>
       </div>
     );
   }
@@ -138,13 +177,13 @@ const UserProfilePage: React.FC = () => {
             <div className="flex items-center gap-2">
               <Users className="w-5 h-5 text-gray-400" />
               <span className="text-gray-500">
-                关注 <span className="font-semibold text-gray-800">{userStats?.followingCount || 0}</span>
+                关注 <span className="font-semibold text-gray-800">{userProfile.followingCount || 0}</span>
               </span>
             </div>
             <div className="flex items-center gap-2">
               <Users className="w-5 h-5 text-gray-400" />
               <span className="text-gray-500">
-                粉丝 <span className="font-semibold text-gray-800">{userStats?.followersCount || 0}</span>
+                粉丝 <span className="font-semibold text-gray-800">{userProfile.followersCount || 0}</span>
               </span>
             </div>
           </div>
@@ -182,7 +221,7 @@ const UserProfilePage: React.FC = () => {
         />
       </div>
 
-      {userStats?.heatmapData && (
+      {userStats?.heatmapData && userStats.heatmapData.length > 0 && (
         <HeatmapCalendar data={userStats.heatmapData} />
       )}
 
@@ -215,12 +254,7 @@ const UserProfilePage: React.FC = () => {
 
       {activeTab === 'checkins' ? (
         <div className="space-y-4">
-          {loading && userCheckIns.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-              <Loader2 className="w-8 h-8 animate-spin mb-3" />
-              <p>加载中...</p>
-            </div>
-          ) : userCheckIns.length === 0 ? (
+          {userCheckIns.length === 0 ? (
             <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Target className="w-10 h-10 text-gray-300" />

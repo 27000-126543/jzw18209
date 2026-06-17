@@ -6,8 +6,10 @@ const router = Router();
 
 router.post('/', authMiddleware, habitController.create);
 router.get('/', authMiddleware, habitController.list);
+router.get('/statistics', authMiddleware, habitController.statistics);
 router.get('/progress', authMiddleware, habitController.progress);
 router.get('/:id', authMiddleware, habitController.detail);
+router.get('/:id/checkins', authMiddleware, habitController.checkins);
 router.put('/:id', authMiddleware, habitController.update);
 router.delete('/:id', authMiddleware, habitController.remove);
 

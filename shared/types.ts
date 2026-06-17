@@ -182,7 +182,73 @@ export interface ExploreResponse {
   suggestedUsers: UserProfile[];
 }
 
+export interface TodayProgress {
+  habitId: number;
+  completed: boolean;
+  currentCount: number;
+  targetCount: number;
+  completionRate: number;
+}
+
+export interface HabitStatistics {
+  currentStreak: number;
+  longestStreak: number;
+  monthlyRate: number;
+  totalCheckIns: number;
+  badgesCount: number;
+  heatmapData: { date: string; count: number }[];
+  streaks: Record<number, number>;
+}
+
 export interface HabitListResponse {
   habits: Habit[];
-  todayProgress: { habitId: number; completed: boolean }[];
+  todayProgress: TodayProgress[];
+}
+
+export interface UserStatistics {
+  user: User & { isFollowing?: boolean };
+  currentStreak: number;
+  longestStreak: number;
+  totalCheckIns: number;
+  followersCount: number;
+  followingCount: number;
+  heatmapData: { date: string; count: number }[];
+}
+
+export interface ExploreUser {
+  id: number;
+  username: string;
+  avatar: string;
+  bio: string;
+  isFollowing?: boolean;
+  currentStreak: number;
+  totalCheckIns: number;
+}
+
+export interface TeamProgress {
+  date: string;
+  completedRate: number;
+}
+
+export interface TeamMemberExtended {
+  id: number;
+  teamId: number;
+  userId: number;
+  username: string;
+  avatar: string;
+  joinedAt: string;
+  todayCompleted: boolean;
+  isCurrentUser: boolean;
+  streak: number;
+  totalCheckIns: number;
+}
+
+export interface TeamExtended extends Team {
+  icon: string;
+  color: string;
+  currentStreak: number;
+  totalCheckIns: number;
+  membersCount: number;
+  targetCount: number;
+  endDate: string;
 }
